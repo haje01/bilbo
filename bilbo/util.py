@@ -1,9 +1,49 @@
 """각종 유틸리티 함수."""
+import os
 import logging
+from logging.handlers import RotatingFileHandler
+
+
+LOG_FILE = 'bilbo_log.txt'
+
+mod_dir = os.path.dirname(os.path.abspath(__file__))
+home_dir = os.path.expanduser('~')
+bilbo_dir = os.path.join(home_dir, ".bilbo")
+log_dir = os.path.join(bilbo_dir, 'logs')
+log_path = os.path.join(log_dir, LOG_FILE)
+prof_dir = os.path.join(bilbo_dir, 'profiles')
+clust_dir = os.path.join(bilbo_dir, 'clusters')
 
 
 LOG_FMT = logging.Formatter('%(levelname)s [%(filename)s:%(lineno)d]'
                             ' %(message)s')
+
+
+def make_dir(dir_name, log=True):
+    if log:
+        info("make_dir: {}".format(dir_name))
+    try:
+        os.mkdir(dir_name)
+    except PermissionError as e:
+        if log:
+            error(e)
+        error("Can not create {} directory.".format(dir_name))
+        sys.exit(-1)
+
+
+def _check_dirs():
+    """필요한 디렉토리 체크."""
+    if not os.path.isdir(bilbo_dir):
+        make_dir(bilbo_dir, False)
+    if not os.path.isdir(log_dir):
+        make_dir(log_dir, False)
+    if not os.path.isdir(prof_dir):
+        make_dir(prof_dir, False)
+    if not os.path.isdir(clust_dir):
+        make_dir(clust_dir, False)
+
+
+_check_dirs()
 
 
 def log_level_from_verbosity(verbosity):
@@ -28,11 +68,20 @@ def query_stream_log_handler(logger):
 
 def set_log_verbosity(verbosity):
     level = log_level_from_verbosity(verbosity)
-    logger = logging.getLogger()
-    logger.setLevel(level)
-    handler = query_stream_log_handler(logger)
-    handler.setLevel(level)
-    handler.setFormatter(LOG_FMT)
+    rotfile = RotatingFileHandler(
+        log_path,
+        maxBytes=1024**2,
+        backupCount=5
+    )
+    console = logging.StreamHandler()
+    formatter = logging.Formatter('%(name)-12s: %(levelname)-8s %(message)s')
+    console.setFormatter(formatter)
+    logging.basicConfig(
+        handlers=[rotfile, console],
+        level=level,
+        format='[%(asctime)s] {%(pathname)s:%(lineno)d} %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
 
 
 def debug(msg):
@@ -54,3 +103,18 @@ def error(msg):
 def critical(msg):
     logging.getLogger().critical(msg)
 
+
+def iter_profiles():
+    """프로파일을 순회."""
+    for prof in os.listdir(prof_dir):
+        if prof.endswith('json'):
+            yield prof
+
+
+def check_cluster(profile):
+    """명시적 클러스터나 최근 클러스터를 확인."""
+    assert 'BILBO_CLUSTER' in os.environ or profile is not None
+
+    if profile is not None:
+        return profile
+    return os.environ['BILBO_CLUSTER']
