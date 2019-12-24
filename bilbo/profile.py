@@ -31,13 +31,13 @@ def check_profile(proname):
     Args:
         proname (str): 프로파일명 (.json 파일명 제외)
     """
-    if proname.lower().endswith('.json'):
+    if not proname.lower().endswith('.json'):
         error("Wrong profile name '{}'. Use only filename without "
               "extension.".format(proname))
         raise NameError(proname)
 
     # file existence
-    path = "{}/{}.json".format(prof_dir, proname)
+    path = os.path.join(prof_dir, proname)
     if not os.path.isfile(path):
         error("Profile '{}' does not exist.".format(path))
         raise(FileNotFoundError(path))

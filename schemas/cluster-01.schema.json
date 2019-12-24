@@ -3,7 +3,7 @@
     "title": "cluster",
     "description": "Bilbo schema for cluster",
     "definitions": {
-        "instanceType": {
+        "instanceInfo": {
             "description": "Instance type config",
             "properties": {
                 "ami": {
@@ -11,9 +11,9 @@
                     "description": "AWS machine image ID",
                     "pattern": "^ami-[0-9a-f]+$"
                 },
-                "type": {
+                "instance_type": {
                     "type": "string",
-                    "description": "Instance type"
+                    "description": "EC2 Instance type"
                 }
             }
         },
@@ -24,11 +24,11 @@
                     "const": "dask"
                 },
                 "scheduler": {
-                    "$ref": "#/definitions/instanceType"
+                    "$ref": "#/definitions/instanceInfo"
                 },
                 "worker": {
                     "allOf": [
-                        { "$ref": "#/definitions/instanceType" },
+                        { "$ref": "#/definitions/instanceInfo" },
                         { "properties": {
                             "count": {
                                 "type": "integer",
@@ -52,28 +52,24 @@
             "required": ["type"]
         }
     },
-    "properties": {
-        "base": {
-            "type": "string",
-            "description": "Base profile file name (with .json)",
-            "pattern": "^.+\\.json$"
-        },
-        "common_instance": {
-            "$ref": "#/definitions/instanceType"
-        },
-        "keyname": {
-            "description": "The instance's EC2 Key-pair name"
-        },
-        "security_group": {
-            "type": "string",
-            "description": "Security group id for instance",
-            "pattern": "^sg-[0-9a-f]+$"
-        },
-        "cluster": {
-            "oneOf": [
-                { "$ref": "#/definitions/daskType"},
-                { "$ref": "#/definitions/rayType"}
-            ]
+    "allOf": [
+        { "$ref": "#/definitions/instanceInfo" },
+        { "properties": {
+            "keyname": {
+                "description": "The instance's EC2 Key-pair name"
+            },
+            "security_group": {
+                "type": "string",
+                "description": "Security group id for instance",
+                "pattern": "^sg-[0-9a-f]+$"
+            },
+            "cluster": {
+                "oneOf": [
+                    { "$ref": "#/definitions/daskType"},
+                    { "$ref": "#/definitions/rayType"}
+                    ]
+                }
+            }
         }
-    }
+    ]
 }
