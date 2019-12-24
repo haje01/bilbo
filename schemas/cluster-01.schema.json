@@ -1,0 +1,75 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "cluster",
+    "description": "Bilbo schema for cluster",
+    "definitions": {
+        "instanceType": {
+            "description": "Instance type config",
+            "properties": {
+                "ami": {
+                    "type": "string",
+                    "description": "AWS machine image ID",
+                    "pattern": "^ami-[0-9a-f]+$"
+                },
+                "type": {
+                    "type": "string",
+                    "description": "Instance type"
+                }
+            }
+        },
+        "daskType": {
+            "description": "Dask cluster config",
+            "properties": {
+                "type": {
+                    "const": "dask"
+                },
+                "scheduler": {
+                    "$ref": "#/definitions/instanceType"
+                },
+                "worker": {
+                    "allOf": [
+                        { "$ref": "#/definitions/instanceType" },
+                        { "properties": {
+                            "count": {
+                                "type": "integer",
+                                "description": "Dask worker instance count",
+                                "minimum": 1
+                                }
+                            }
+                        }
+                    ]
+                }
+            },
+            "required": ["type", "worker"]
+        },
+        "rayType": {
+            "description": "Ray cluster config",
+            "properties": {
+                "type": {
+                    "const": "ray"
+                }
+            },
+            "required": ["type"]
+        }
+    },
+    "properties": {
+        "common_instance": {
+            "$ref": "#/definitions/instanceType"
+        },
+        "keyname": {
+            "description": "The instance's EC2 Key-pair name"
+        },
+        "security_group": {
+            "type": "string",
+            "description": "Security group id for instance",
+            "pattern": "^sg-[0-9a-f]+$"
+        },
+        "cluster": {
+            "oneOf": [
+                { "$ref": "#/definitions/daskType"},
+                { "$ref": "#/definitions/rayType"}
+            ]
+        }
+    },
+    "required": ["keyname", "security_group"]
+}
