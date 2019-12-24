@@ -1,9 +1,10 @@
 """명령행 인터페이스."""
+import json
 
 import click
 
 from bilbo.version import VERSION
-from bilbo.util import (set_log_verbosity, iter_profiles, check_cluster)
+from bilbo.util import (set_log_verbosity, iter_profiles)
 
 
 @click.group()
@@ -16,9 +17,11 @@ def main(ctx, verbose):
 
 @main.command(help="Create cluster.")
 @click.argument('PROFILE')
-def create(profile):
+@click.option('--dry', help="Dryp run for test")
+def create(profile, dry):
     """클러스터 생성."""
-    print("Create a cluster from {}".format(profile))
+    from bilbo.cluster import create_cluster
+    create_cluster(profile, dry)
 
 
 @main.group(help="List things [..]")
@@ -61,7 +64,10 @@ def desc():
 @desc.command('profile', help='Describe profile.')
 @click.argument('PROFILE')
 def desc_profile(profile):
-    print("Describe profile {}".format(profile))
+    """프로파일을 설명."""
+    from bilbo.profile import read_profile
+    pro = read_profile(profile)
+    print(json.dumps(pro, indent=4, sort_keys=True))
 
 
 @main.command(help='Show bilbo version.')

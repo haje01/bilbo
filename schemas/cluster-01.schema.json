@@ -53,6 +53,11 @@
         }
     },
     "properties": {
+        "base": {
+            "type": "string",
+            "description": "Base profile file name (with .json)",
+            "pattern": "^.+\\.json$"
+        },
         "common_instance": {
             "$ref": "#/definitions/instanceType"
         },
@@ -70,6 +75,5 @@
                 { "$ref": "#/definitions/rayType"}
             ]
         }
-    },
-    "required": ["keyname", "security_group"]
+    }
 }

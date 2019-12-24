@@ -67,6 +67,7 @@ def query_stream_log_handler(logger):
 
 
 def set_log_verbosity(verbosity):
+    """Verbosity로 로그 레벨 지정."""
     level = log_level_from_verbosity(verbosity)
     rotfile = RotatingFileHandler(
         log_path,
@@ -74,7 +75,7 @@ def set_log_verbosity(verbosity):
         backupCount=5
     )
     console = logging.StreamHandler()
-    formatter = logging.Formatter('%(name)-12s: %(levelname)-8s %(message)s')
+    formatter = logging.Formatter('%(levelname)-8s: %(message)s')
     console.setFormatter(formatter)
     logging.basicConfig(
         handlers=[rotfile, console],
@@ -85,22 +86,27 @@ def set_log_verbosity(verbosity):
 
 
 def debug(msg):
+    """Debug 레벨 로그 메시지."""
     logging.getLogger().debug(msg)
 
 
 def info(msg):
+    """Info 레벨 로그 메시지."""
     logging.getLogger().info(msg)
 
 
 def warning(msg):
+    """Warning 레벨 로그 메시지."""
     logging.getLogger().warning(msg)
 
 
 def error(msg):
+    """Error 로그 메시지."""
     logging.getLogger().error(msg)
 
 
 def critical(msg):
+    """Critical 로그 메시지."""
     logging.getLogger().critical(msg)
 
 
@@ -111,10 +117,10 @@ def iter_profiles():
             yield prof
 
 
-def check_cluster(profile):
+def check_cluster(cluster):
     """명시적 클러스터나 최근 클러스터를 확인."""
-    assert 'BILBO_CLUSTER' in os.environ or profile is not None
+    assert 'BILBO_CLUSTER' in os.environ or cluster is not None
 
-    if profile is not None:
-        return profile
+    if cluster is not None:
+        return cluster
     return os.environ['BILBO_CLUSTER']
