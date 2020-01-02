@@ -79,46 +79,66 @@ def create_dask_cluster(clname, pcfg, ec2, dry):
 
     # create scheduler
     scd_name = '{}-dask-scheduler'.format(clname)
-    res = ec2.run_instances(ImageId=pobj.scd_node.ami,
-                            InstanceType=pobj.scd_node.instype,
-                            MinCount=pobj.scd_cnt, MaxCount=pobj.scd_cnt,
-                            KeyName=pobj.scd_node.keyname,
-                            SecurityGroupIds=[pobj.scd_node.secgroup],
-                            TagSpecifications=[
-                                {
-                                    'ResourceType': 'instance',
-                                    'Tags': [
-                                        {'Key': 'Name', 'Value': scd_name}
-                                    ]
-                                }
-                            ],
-                            DryRun=dry)
+    ins = ec2.create_instances(ImageId=pobj.scd_node.ami,
+                               InstanceType=pobj.scd_node.instype,
+                               MinCount=pobj.scd_cnt, MaxCount=pobj.scd_cnt,
+                               KeyName=pobj.scd_node.keyname,
+                               SecurityGroupIds=[pobj.scd_node.secgroup],
+                               TagSpecifications=[
+                                   {
+                                       'ResourceType': 'instance',
+                                       'Tags': [
+                                           {'Key': 'Name', 'Value': scd_name}
+                                       ]
+                                   }
+                               ],
+                               DryRun=dry)
 
-    ins = res['Instances'][0]
-    clinfo['instances'].append(ins['InstanceId'])
-    clinfo['scheduler'] = ins
+    scd = ins[0]
+    clinfo['instances'].append(scd.instance_id)
 
     # create worker
     wrk_name = '{}-dask-worker'.format(clname)
-    res = ec2.run_instances(ImageId=pobj.wrk_node.ami,
-                            InstanceType=pobj.wrk_node.instype,
-                            MinCount=pobj.wrk_cnt, MaxCount=pobj.wrk_cnt,
-                            KeyName=pobj.wrk_node.keyname,
-                            SecurityGroupIds=[pobj.wrk_node.secgroup],
-                            TagSpecifications=[
-                                {
-                                    'ResourceType': 'instance',
-                                    'Tags': [
-                                        {'Key': 'Name', 'Value': wrk_name}
-                                    ]
-                                }
-                            ],
-                            DryRun=dry)
+    ins = ec2.create_instances(ImageId=pobj.wrk_node.ami,
+                               InstanceType=pobj.wrk_node.instype,
+                               MinCount=pobj.wrk_cnt, MaxCount=pobj.wrk_cnt,
+                               KeyName=pobj.wrk_node.keyname,
+                               SecurityGroupIds=[pobj.wrk_node.secgroup],
+                               TagSpecifications=[
+                                   {
+                                       'ResourceType': 'instance',
+                                       'Tags': [
+                                           {'Key': 'Name', 'Value': wrk_name}
+                                       ]
+                                   }
+                               ],
+                               DryRun=dry)
 
     clinfo['workers'] = []
-    for ins in res['Instances']:
-        clinfo['instances'].append(ins['InstanceId'])
-        clinfo['workers'].append(ins)
+    for wrk in ins:
+        clinfo['instances'].append(wrk.instance_id)
+
+    def get_node_info(ec2):
+        info = {}
+        info['launch_time'] = ec2.launch_time
+        info['image_id'] = ec2.image_id
+        info['instance_id'] = ec2.instance_id
+        info['public_ip'] = ec2.public_ip_address
+        info['private_dns_name'] = ec2.private_dns_name
+        info['key_name'] = ec2.key_name
+        return info
+
+
+    # 사용 가능 상태까지 기다린 후 정보 얻기.
+    scd.wait_until_running()
+    scd.load()
+    clinfo['scheduler'] = get_node_info(scd)
+
+    for wrk in ins:
+        wrk.wait_until_running()
+        wrk.load()
+        winfo = get_node_info(wrk)
+        clinfo['workers'].append(winfo)
 
     save_cluster_info(clname, clinfo)
 
@@ -153,7 +173,7 @@ def create_cluster(profile, clname, dry):
     pcfg = read_profile(profile)
     if clname is None:
         clname = profile.lower().split('.')[0]
-    ec2 = boto3.client('ec2')
+    ec2 = boto3.resource('ec2')
     cltype = pcfg['cluster']['type']
     if cltype == 'dask':
         return create_dask_cluster(clname, pcfg, ec2, dry)
@@ -161,7 +181,7 @@ def create_cluster(profile, clname, dry):
         raise NotImplementedError(cltype)
 
 
-def show_clusters():
+def show_all_cluster():
     """모든 클러스터를 표시."""
     for cl in iter_clusters():
         name = cl.split('.')[0]
@@ -171,21 +191,30 @@ def show_clusters():
 def show_cluster(clname):
     """클러스터 정보를 표시."""
     info = load_cluster_info(clname)
+    ctype = info['type']
 
     print("")
     print("Name: {}".format(info['name']))
     print("Type: {}".format(info['type']))
 
+    if ctype == 'dask':
+        show_dask_cluster(info)
+    else:
+        raise NotImplementedError()
+
+
+def show_dask_cluster(info):
     print("")
     print("Scheduler:")
     scd = info['scheduler']
-    print("  Instance Id: {}".format(scd['InstanceId']))
+    print("  instance_id: {}".format(scd['instance_id']))
 
     print("")
     print("Workers:")
     wrks = info['workers']
-    for wrk in wrks:
-        print("  Instance Id: {}".format(wrk['InstanceId']))
+    for wi, wrk in enumerate(wrks):
+        print("  [{}] instance_id: {}, public_ip: {}".
+              format(wi + 1, wrk['instance_id'], wrk['public_ip']))
     print("")
 
 

@@ -122,12 +122,3 @@ def iter_clusters():
     for cl in os.listdir(clust_dir):
         if cl.endswith('.json'):
             yield cl
-
-
-def check_cluster(cluster):
-    """명시적 클러스터나 최근 클러스터를 확인."""
-    assert 'BILBO_CLUSTER' in os.environ or cluster is not None
-
-    if cluster is not None:
-        return cluster
-    return os.environ['BILBO_CLUSTER']

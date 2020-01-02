@@ -8,7 +8,7 @@ import botocore
 from bilbo.version import VERSION
 from bilbo.util import set_log_verbosity, iter_profiles, clust_dir
 from bilbo.cluster import create_cluster, show_plan, show_cluster, \
-    destroy_cluster, show_clusters
+    destroy_cluster, show_all_cluster
 
 
 @click.group()
@@ -50,7 +50,7 @@ def list():
 @list.command('clusters', help="List active clusters.")
 def list_clusters():
     """모든 클러스터를 리스트."""
-    show_clusters()
+    show_all_cluster()
 
 
 @list.command('profiles', help='List profiles.')
@@ -58,13 +58,6 @@ def list_profiles():
     """모든 프로파일을 리스트."""
     for prof in iter_profiles():
         print(prof)
-
-
-@list.command('instances', help="List cluster instances.")
-@click.argument('CLUSTER')
-def list_instances(cluster):
-    """클러스터 내 인스턴스를 리스트."""
-    print("List cluster instances")
 
 
 @main.command(help="Destroy cluster.")
@@ -80,21 +73,46 @@ def desc():
     pass
 
 
+def check_profile_name(pfname):
+    """프로파일 이름 체크."""
+    if not pfname.lower().endswith('.json'):
+        print("Wrong profile name '{}'. Use '{}.json' instead.".
+              format(pfname, pfname))
+        return False
+    return True
+
+
 @desc.command('profile', help='Describe profile.')
 @click.argument('PROFILE')
 def desc_profile(profile):
     """프로파일을 설명."""
+    if not check_profile_name(profile):
+        return
     from bilbo.profile import read_profile
     pro = read_profile(profile)
     print(json.dumps(pro, indent=4, sort_keys=True))
+
+
+def check_cluster_name(clname):
+    """클러스터 이름 체크."""
+    if clname.lower().endswith('.json'):
+        rname = clname.split('.')[0]
+        print("Wrong cluster name '{}'. Use '{}' instead.".
+              format(clname, rname))
+        return False
+    return True
 
 
 @desc.command('cluster', help='Describe cluster.')
 @click.argument('CLUSTER')
 def desc_cluster(cluster):
     """프로파일을 설명."""
-    assert not cluster.lower().endswith('.json')
-    show_cluster(cluster)
+    if not check_cluster_name(cluster):
+        return
+    try:
+        show_cluster(cluster)
+    except FileNotFoundError:
+        print("Cluster '{}' does not exist.".format(cluster))
 
 
 @main.command(help='Show bilbo version.')
