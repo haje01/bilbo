@@ -52,27 +52,46 @@
                 }
             },
             "required": ["type"]
+        },
+        "sshType": {
+            "description": "SSH config",
+            "properties": {
+                "user": {
+                    "type": "string",
+                    "description": "User for SSH login"
+                },
+                "private_key": {
+                    "type": "string",
+                    "description": "Private key for SSH login"
+                }
+            },
+            "required": ["user", "private_key"]
         }
     },
     "allOf": [
         { "$ref": "#/definitions/instanceInfo" },
-        { "properties": {
-            "keyname": {
-                "description": "The instance's EC2 Key-pair name"
-            },
-            "security_group": {
-                "type": "string",
-                "description": "Security group id for instance",
-                "pattern": "^sg-[0-9a-f]+$"
-            },
-            "cluster": {
-                "oneOf": [
-                    { "$ref": "#/definitions/daskType"},
-                    { "$ref": "#/definitions/rayType"}
-                    ]
+        {
+            "properties": {
+                "keyname": {
+                    "type": "string",
+                    "description": "The instance's EC2 Key-pair name"
+                },
+                "security_group": {
+                    "type": "string",
+                    "description": "Security group id for instance",
+                    "pattern": "^sg-[0-9a-f]+$"
+                },
+                "cluster": {
+                    "oneOf": [
+                        { "$ref": "#/definitions/daskType"},
+                        { "$ref": "#/definitions/rayType"}
+                        ]
+                },
+                "ssh": {
+                    "$ref": "#/definitions/sshType"
                 }
             },
-            "required": ["cluster"]
+            "required": ["cluster", "ssh"]
         }
     ]
 }

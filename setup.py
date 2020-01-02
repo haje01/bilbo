@@ -7,6 +7,7 @@ with open(os.path.join('bilbo', 'version.py'), 'rt') as f:
 
 install_requires = [
     'click',
+    'paramiko',
     'jsonschema==3.2.0',
 ]
 

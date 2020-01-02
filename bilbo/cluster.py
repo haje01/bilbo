@@ -1,9 +1,12 @@
 """클러스터 모듈."""
 import os
+from os.path import expanduser
 import json
 import datetime
+import warnings
 
 import boto3
+import paramiko
 
 from bilbo.profile import read_profile, DaskProfile
 from bilbo.util import critical, warning, error, clust_dir, iter_clusters
@@ -140,6 +143,10 @@ def create_dask_cluster(clname, pcfg, ec2, dry):
         winfo = get_node_info(wrk)
         clinfo['workers'].append(winfo)
 
+    # Dask 클러스터를 위한 원격 명령어 실행
+    # run_remote_commands(['touch /tmp/foo'], [scd.instance_id])
+
+    # 성공. 클러스터 정보 저장
     clinfo['ready_time'] = datetime.datetime.now()
     save_cluster_info(clname, clinfo)
 
@@ -178,7 +185,8 @@ def create_cluster(profile, clname, dry):
     ec2 = boto3.resource('ec2')
     cltype = pcfg['cluster']['type']
     if cltype == 'dask':
-        return create_dask_cluster(clname, pcfg, ec2, dry)
+        create_dask_cluster(clname, pcfg, ec2, dry)
+        show_cluster(clname)
     else:
         raise NotImplementedError(cltype)
 
@@ -231,7 +239,8 @@ def show_dask_cluster(info):
     print("")
     print("Scheduler:")
     scd = info['scheduler']
-    print("  instance_id: {}".format(scd['instance_id']))
+    print("  instance_id: {}, public_ip: {}".format(scd['instance_id'],
+          scd['public_ip']))
 
     print("")
     print("Workers:")
@@ -252,3 +261,37 @@ def destroy_cluster(clname, dry):
 
     path = os.path.join(clust_dir, clname + '.json')
     os.unlink(path)
+
+
+def send_instance_cmd(profile, public_ip, cmd):
+    """인스턴스에 SSH 명령어 실행
+
+    https://stackoverflow.com/questions/42645196/how-to-ssh-and-run-commands-in-ec2-using-boto3
+
+    Args:
+        profile (str): 프로파일명
+        public_ip (str): 대상 인스턴스의 IP
+        cmd (list): 커맨드 문자열 리스트
+
+    Returns:
+        send_command 함수의 결과
+    """
+    warnings.filterwarnings("ignore")
+
+    pcfg = read_profile(profile)
+    ssh = pcfg['ssh']
+    user = ssh['user']
+    private_key = expanduser(ssh['private_key'])
+
+    key = paramiko.RSAKey.from_private_key_file(private_key)
+    client = paramiko.SSHClient()
+    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+    client.connect(hostname=public_ip, username=user, pkey=key)
+
+    stdin, stdout, stderr = client.exec_command(cmd)
+    result = stdout.read()
+    if len(result) > 0:
+        print(result)
+
+    client.close()

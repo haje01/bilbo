@@ -1,5 +1,4 @@
 """명령행 인터페이스."""
-import os
 import json
 
 import click
@@ -8,7 +7,7 @@ import botocore
 from bilbo.version import VERSION
 from bilbo.util import set_log_verbosity, iter_profiles
 from bilbo.cluster import create_cluster, show_plan, show_cluster, \
-    destroy_cluster, show_all_cluster, check_cluster
+    destroy_cluster, show_all_cluster, check_cluster, send_instance_cmd
 from bilbo.profile import check_profile
 
 
@@ -110,10 +109,28 @@ def desc_cluster(cluster):
         print("Cluster '{}' does not exist.".format(cluster))
 
 
+@main.group(help="Send command [..]")
+def cmd():
+    pass
+
+
+@cmd.command('instance', help="Command to a instance.")
+@click.argument('PROFILE')
+@click.argument('PUBLIC_IP')
+@click.argument('CMD')
+def cmd_instance(profile, public_ip, cmd):
+    try:
+        check_profile(profile)
+    except Exception:
+        return
+    send_instance_cmd(profile, public_ip, cmd)
+
+
 @main.command(help='Show bilbo version.')
 def version():
     """버전을 출력."""
     print(VERSION)
+
 
 
 if __name__ == '__main__':
