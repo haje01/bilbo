@@ -29,18 +29,20 @@
                 "worker": {
                     "allOf": [
                         { "$ref": "#/definitions/instanceInfo" },
-                        { "properties": {
-                            "count": {
-                                "type": "integer",
-                                "description": "Dask worker instance count",
-                                "minimum": 1
-                                }
+                        {
+                            "properties": {
+                                "count": {
+                                    "type": "integer",
+                                    "description": "Dask worker instance count",
+                                    "minimum": 1
+                                    }
                             }
                         }
+
                     ]
                 }
             },
-            "required": ["type", "worker"]
+            "required": ["type"]
         },
         "rayType": {
             "description": "Ray cluster config",
@@ -69,7 +71,8 @@
                     { "$ref": "#/definitions/rayType"}
                     ]
                 }
-            }
+            },
+            "required": ["cluster"]
         }
     ]
 }

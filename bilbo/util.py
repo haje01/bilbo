@@ -113,8 +113,15 @@ def critical(msg):
 def iter_profiles():
     """프로파일을 순회."""
     for prof in os.listdir(prof_dir):
-        if prof.endswith('json'):
+        if prof.endswith('.json'):
             yield prof
+
+
+def iter_clusters():
+    """프로파일을 순회."""
+    for cl in os.listdir(clust_dir):
+        if cl.endswith('.json'):
+            yield cl
 
 
 def check_cluster(cluster):

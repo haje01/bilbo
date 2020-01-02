@@ -1,11 +1,14 @@
 """프로파일 모듈."""
 import os
 import json
+from copy import copy
 
 import boto3
 import jsonschema
 
 from bilbo.util import error, prof_dir, mod_dir
+
+DEFAULT_WORKER = 1
 
 
 def get_latest_schema():
@@ -29,7 +32,7 @@ def check_profile(proname):
     """프로파일을 확인.
 
     Args:
-        proname (str): 프로파일명 (.json 파일명 제외)
+        proname (str): 프로파일명 (.json 확장자 포함)
     """
     if not proname.lower().endswith('.json'):
         error("Wrong profile name '{}'. Use only filename without "
@@ -62,17 +65,53 @@ def read_profile(profile):
     return pcfg
 
 
+class Node:
+    """프로파일 내 노드 정보."""
+
+    def __init__(self, ncfg):
+        self.ami = ncfg.get('ami')
+        self.instype = ncfg.get('instance_type')
+        self.keyname = ncfg.get('keyname')
+        self.secgroup = ncfg.get('security_group')
+
+    def overwrite(self, ncfg):
+        self.ami = ncfg.get('ami', self.ami)
+        self.instype = ncfg.get('instance_type', self.instype)
+        self.keyname = ncfg.get('keyname', self.keyname)
+        self.secgroup = ncfg.get('security_group', self.secgroup)
+
+
 class Profile:
-    def __init__(self, pro):
-        self.pro = pro
-        cluster = pro['cluster']
+    """프로파일 기본 객체."""
 
-        if 'common_instance' in pro:
-            com = pro['common_instance']
-            self.com_ami = getattr(com, 'ami', None)
-            self.com_cnt = getattr(com, 'count', None)
+    def __init__(self, pcfg):
+        """초기화 및 검증."""
+        validate(pcfg)
+        # 공통 노드 정보
+        self.node = Node(pcfg)
 
-        if 'worker' in cluster:
-            worker = cluster['worker']
-            self.worker_ami = getattr(worker, 'ami', None)
-            self.worker_cnt = getattr(worker, 'count', None)
+        self.cluster = pcfg.get('cluster')
+        self.cluster_type = self.cluster.get('type')
+
+
+class DaskProfile(Profile):
+    """다스크 프로파일."""
+
+    def __init__(self, pcfg):
+        super(DaskProfile, self).__init__(pcfg)
+        self.cluster = pcfg.get('cluster')
+
+        # 스케쥴러
+        self.scd_node = copy(self.node)
+        self.scd_cnt = 1
+        scfg = self.cluster.get('scheduler')
+        if scfg is not None:
+            self.scd_node.overwrite(scfg)
+
+        # 워커
+        self.wrk_node = copy(self.node)
+        wcfg = self.cluster.get('worker')
+        self.wrk_cnt = DEFAULT_WORKER
+        if wcfg is not None:
+            self.wrk_node.overwrite(wcfg)
+            self.wrk_cnt = wcfg.get('count', self.wrk_cnt)
