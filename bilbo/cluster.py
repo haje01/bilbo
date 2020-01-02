@@ -96,6 +96,7 @@ def create_dask_cluster(clname, pcfg, ec2, dry):
 
     scd = ins[0]
     clinfo['instances'].append(scd.instance_id)
+    clinfo['launch_time'] = datetime.datetime.now()
 
     # create worker
     wrk_name = '{}-dask-worker'.format(clname)
@@ -120,7 +121,6 @@ def create_dask_cluster(clname, pcfg, ec2, dry):
 
     def get_node_info(ec2):
         info = {}
-        info['launch_time'] = ec2.launch_time
         info['image_id'] = ec2.image_id
         info['instance_id'] = ec2.instance_id
         info['public_ip'] = ec2.public_ip_address
@@ -140,6 +140,7 @@ def create_dask_cluster(clname, pcfg, ec2, dry):
         winfo = get_node_info(wrk)
         clinfo['workers'].append(winfo)
 
+    clinfo['ready_time'] = datetime.datetime.now()
     save_cluster_info(clname, clinfo)
 
 
@@ -148,13 +149,14 @@ def save_cluster_info(clname, clinfo):
 
     def json_default(value):
         if isinstance(value, datetime.date):
-            return value.strftime('%Y-%m-%d')
+            return value.strftime('%Y-%m-%d %H:%M:%S')
         raise TypeError('not JSON serializable')
 
     warning("save_cluster_info: '{}'".format(clname))
     path = os.path.join(clust_dir, clname + '.json')
     with open(path, 'wt') as f:
-        body = json.dumps(clinfo, default=json_default)
+        body = json.dumps(clinfo, default=json_default, indent=4,
+                          sort_keys=True)
         f.write(body)
 
 
@@ -188,6 +190,27 @@ def show_all_cluster():
         print("{}".format(name))
 
 
+def check_cluster(clname):
+    """프로파일을 확인.
+
+    Args:
+        clname (str): 클러스터명 (.json 확장자 제외)
+    """
+    if clname.lower().endswith('.json'):
+        rname = clname.split('.')[0]
+        error("Wrong cluster name '{}'. Use '{}' instead ".
+              format(clname, rname))
+        raise NameError(clname)
+
+    # file existence
+    path = os.path.join(clust_dir, clname + '.json')
+    if not os.path.isfile(path):
+        error("Cluster '{}' does not exist.".format(path))
+        raise(FileNotFoundError(path))
+
+    return path
+
+
 def show_cluster(clname):
     """클러스터 정보를 표시."""
     info = load_cluster_info(clname)
@@ -196,6 +219,7 @@ def show_cluster(clname):
     print("")
     print("Name: {}".format(info['name']))
     print("Type: {}".format(info['type']))
+    print("Time: {}".format(info['ready_time']))
 
     if ctype == 'dask':
         show_dask_cluster(info)

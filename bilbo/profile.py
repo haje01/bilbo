@@ -35,8 +35,8 @@ def check_profile(proname):
         proname (str): 프로파일명 (.json 확장자 포함)
     """
     if not proname.lower().endswith('.json'):
-        error("Wrong profile name '{}'. Use only filename without "
-              "extension.".format(proname))
+        error("Wrong profile name '{}'. Use '{}.json' instead.".
+              format(proname, proname))
         raise NameError(proname)
 
     # file existence

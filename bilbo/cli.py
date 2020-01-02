@@ -6,9 +6,10 @@ import click
 import botocore
 
 from bilbo.version import VERSION
-from bilbo.util import set_log_verbosity, iter_profiles, clust_dir
+from bilbo.util import set_log_verbosity, iter_profiles
 from bilbo.cluster import create_cluster, show_plan, show_cluster, \
-    destroy_cluster, show_all_cluster
+    destroy_cluster, show_all_cluster, check_cluster
+from bilbo.profile import check_profile
 
 
 @click.group()
@@ -25,6 +26,11 @@ def main(ctx, verbose):
 @click.option('--dry', is_flag=True, help="Dry run for test")
 def create(profile, name, dry):
     """클러스터 생성."""
+    try:
+        check_profile(profile)
+    except Exception:
+        return
+
     try:
         create_cluster(profile, name, dry)
     except botocore.exceptions.ClientError as e:
@@ -65,6 +71,10 @@ def list_profiles():
 @click.option('--dry', is_flag=True, help="Dry run for test")
 def destroy(cluster, dry):
     """클러스터 파괴."""
+    try:
+        check_cluster(cluster)
+    except Exception:
+        return
     destroy_cluster(cluster, dry)
 
 
@@ -73,41 +83,26 @@ def desc():
     pass
 
 
-def check_profile_name(pfname):
-    """프로파일 이름 체크."""
-    if not pfname.lower().endswith('.json'):
-        print("Wrong profile name '{}'. Use '{}.json' instead.".
-              format(pfname, pfname))
-        return False
-    return True
-
-
 @desc.command('profile', help='Describe profile.')
 @click.argument('PROFILE')
 def desc_profile(profile):
     """프로파일을 설명."""
-    if not check_profile_name(profile):
+    try:
+        check_profile(profile)
+    except Exception:
         return
     from bilbo.profile import read_profile
     pro = read_profile(profile)
     print(json.dumps(pro, indent=4, sort_keys=True))
 
 
-def check_cluster_name(clname):
-    """클러스터 이름 체크."""
-    if clname.lower().endswith('.json'):
-        rname = clname.split('.')[0]
-        print("Wrong cluster name '{}'. Use '{}' instead.".
-              format(clname, rname))
-        return False
-    return True
-
-
 @desc.command('cluster', help='Describe cluster.')
 @click.argument('CLUSTER')
 def desc_cluster(cluster):
     """프로파일을 설명."""
-    if not check_cluster_name(cluster):
+    try:
+        check_cluster(cluster)
+    except Exception:
         return
     try:
         show_cluster(cluster)
