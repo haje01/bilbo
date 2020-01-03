@@ -5,12 +5,6 @@ with open(os.path.join('bilbo', 'version.py'), 'rt') as f:
     version = f.read().strip()
     version = version.split('=')[1].strip("'")
 
-install_requires = [
-    'click',
-    'paramiko',
-    'jsonschema==3.2.0',
-]
-
 setup(
     name='bilbo',
     version=version,
@@ -19,5 +13,10 @@ setup(
         'console_scripts': [
             'bilbo = bilbo.cli:main'
         ]
-    }
+    },
+    install_requires= [
+        'click',
+        'paramiko',
+        'jsonschema==3.2.0',
+    ]
 )
