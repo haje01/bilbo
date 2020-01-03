@@ -74,12 +74,16 @@ def set_log_verbosity(verbosity):
         maxBytes=1024**2,
         backupCount=5
     )
+    rotfile.setLevel(logging.DEBUG)
+
     console = logging.StreamHandler()
     formatter = logging.Formatter('%(levelname)-8s: %(message)s')
     console.setFormatter(formatter)
+    console.setLevel(level)
+
     logging.basicConfig(
         handlers=[rotfile, console],
-        level=level,
+        level=logging.DEBUG,
         format='[%(asctime)s] {%(pathname)s:%(lineno)d} %(levelname)s - %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S'
     )

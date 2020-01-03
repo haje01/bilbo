@@ -6,7 +6,7 @@ from copy import copy
 import boto3
 import jsonschema
 
-from bilbo.util import error, prof_dir, mod_dir
+from bilbo.util import error, prof_dir, mod_dir, info
 
 DEFAULT_WORKER = 1
 
@@ -56,6 +56,7 @@ def validate(pcfg):
 
 def read_profile(profile):
     """프로파일 읽기."""
+    info("read_profile {}".format(profile))
     path = check_profile(profile)
     with open(path, 'rt') as f:
         body = f.read()
@@ -98,6 +99,7 @@ class DaskProfile(Profile):
     """다스크 프로파일."""
 
     def __init__(self, pcfg):
+        info("Create DaskProfile from config:\n{}".format(pcfg))
         super(DaskProfile, self).__init__(pcfg)
         self.cluster = pcfg.get('cluster')
 
