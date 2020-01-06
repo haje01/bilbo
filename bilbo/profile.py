@@ -35,9 +35,9 @@ def check_profile(proname):
         proname (str): 프로파일명 (.json 확장자 포함)
     """
     if not proname.lower().endswith('.json'):
-        error("Wrong profile name '{}'. Use '{}.json' instead.".
-              format(proname, proname))
-        raise NameError(proname)
+        msg = "Wrong profile name '{}'. Use '{}.json' instead.". \
+              format(proname, proname)
+        raise NameError(msg)
 
     # file existence
     path = os.path.join(prof_dir, proname)
@@ -110,7 +110,8 @@ class DaskProfile(Profile):
     """다스크 프로파일."""
 
     def __init__(self, pcfg):
-        info("Create DaskProfile from config:\n{}".format(pcfg))
+        pretty = json.dumps(pcfg, indent=4, sort_keys=True)
+        info("Create DaskProfile from config:\n{}".format(pretty))
         super(DaskProfile, self).__init__(pcfg)
         self.cluster = pcfg.get('cluster')
 
@@ -132,3 +133,5 @@ class DaskProfile(Profile):
             if wicfg is not None:
                 self.wrk_inst.overwrite(wicfg)
             self.wrk_cnt = wcfg.get('count', self.wrk_cnt)
+            self.wrk_nthread = wcfg.get('nthread')
+            self.wrk_nproc = wcfg.get('nproc')

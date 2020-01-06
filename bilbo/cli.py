@@ -27,10 +27,7 @@ def main(ctx, verbose):
 @click.option('--dry', is_flag=True, help="Dry run for test")
 def create(profile, name, dry):
     """클러스터 생성."""
-    try:
-        check_profile(profile)
-    except Exception:
-        return
+    check_profile(profile)
 
     try:
         create_cluster(profile, name, dry)
@@ -73,10 +70,7 @@ def list_profiles():
 @click.option('--dry', is_flag=True, help="Dry run for test")
 def destroy(cluster, dry):
     """클러스터 파괴."""
-    try:
-        destroy_cluster(cluster, dry)
-    except Exception:
-        return
+    destroy_cluster(cluster, dry)
 
 
 @main.group(help="Describe things [..]")
@@ -88,10 +82,7 @@ def desc():
 @click.argument('PROFILE')
 def desc_profile(profile):
     """프로파일을 설명."""
-    try:
-        check_profile(profile)
-    except Exception:
-        return
+    check_profile(profile)
     from bilbo.profile import read_profile
     pro = read_profile(profile)
     print(json.dumps(pro, indent=4, sort_keys=True))
@@ -99,22 +90,17 @@ def desc_profile(profile):
 
 @desc.command('cluster', help='Describe cluster.')
 @click.argument('CLUSTER')
-def desc_cluster(cluster):
+@click.option('--detail', is_flag=True, help="Show detailed information.")
+def desc_cluster(cluster, detail):
     """프로파일을 설명."""
-    try:
-        show_cluster(cluster)
-    except Exception:
-        return
+    show_cluster(cluster, detail)
 
 
 @main.command(help="Restart cluster.")
 @click.argument('CLUSTER')
 def restart(cluster):
-    try:
-        stop_cluster(cluster)
-        start_cluster(cluster)
-    except Exception:
-        return
+    stop_cluster(cluster)
+    start_cluster(cluster)
 
 
 @main.command(help="Command to a cluster instance.")
@@ -124,6 +110,10 @@ def restart(cluster):
 def rcmd(cluster, public_ip, cmd):
     # 존재하는 클러스터에서 인스턴스 IP로 정보를 찾음
     info = find_cluster_instance_by_public_ip(cluster, public_ip)
+    if info is None:
+        print("Can not find instance by ip {} in '{}'".
+              format(public_ip, cluster))
+        return
     ssh_user = info['ssh_user']
     ssh_private_key = info['ssh_private_key']
     stdout, _ = send_instance_cmd(ssh_user, ssh_private_key, public_ip, cmd)
@@ -135,10 +125,7 @@ def rcmd(cluster, public_ip, cmd):
 @main.command(help="Open dashboard.")
 @click.argument('CLUSTER')
 def dashboard(cluster):
-    try:
-        open_dashboard(cluster)
-    except Exception:
-        return
+    open_dashboard(cluster)
 
 
 @main.command(help='Show bilbo version.')

@@ -6,13 +6,16 @@ import datetime
 import warnings
 import time
 import webbrowser
+from urllib.request import urlopen
+from urllib.error import URLError
 
 import boto3
 import paramiko
 
 from bilbo.profile import read_profile, DaskProfile
-from bilbo.util import critical, warning, error, clust_dir, iter_clusters
+from bilbo.util import critical, warning, error, clust_dir, iter_clusters, info
 
+warnings.filterwarnings("ignore")
 
 def show_plan(profile, clname):
     pcfg = read_profile(profile)
@@ -84,15 +87,10 @@ def create_dask_cluster(clname, pcfg, ec2, dry):
         dry: (bool): Dry run 여부
     """
     critical("Create dask cluster '{}'.".format(clname))
-    warning("===========================")
-    pretty = json.dumps(pcfg, indent=4, sort_keys=True)
-    warning(pretty)
-    warning("===========================")
 
     # 기존 클러스터가 있으면 에러
     if cluster_info_exists(clname):
-        error("Cluster '{}' already exists.".format(clname))
-        return
+        raise Exception("Cluster '{}' already exists.".format(clname))
 
     pobj = DaskProfile(pcfg)
     clinfo = {'name': clname, 'type': 'dask', 'instances': []}
@@ -112,7 +110,7 @@ def create_dask_cluster(clname, pcfg, ec2, dry):
     clinfo['instances'].append(scd.instance_id)
     clinfo['launch_time'] = datetime.datetime.now()
 
-    # create worker
+    # create workers
     wrk_name = '{}-dask-worker'.format(clname)
     wrk_tag_spec = _build_tag_spec(wrk_name, pobj.wrk_inst.tags)
     ins = ec2.create_instances(ImageId=pobj.wrk_inst.ami,
@@ -123,6 +121,10 @@ def create_dask_cluster(clname, pcfg, ec2, dry):
                                TagSpecifications=wrk_tag_spec,
                                DryRun=dry)
 
+    clinfo['worker_count'] = pobj.wrk_cnt
+    clinfo['worker_nthread'] = pobj.wrk_nthread
+    clinfo['worker_nproc'] = pobj.wrk_nproc
+    clinfo['worker_cpu_options'] = ins[0].cpu_options
     clinfo['workers'] = []
     for wrk in ins:
         clinfo['instances'].append(wrk.instance_id)
@@ -134,12 +136,12 @@ def create_dask_cluster(clname, pcfg, ec2, dry):
         info['public_ip'] = inst.public_ip_address
         info['private_dns_name'] = inst.private_dns_name
         info['key_name'] = inst.key_name
-        info['cpu_options'] = inst.cpu_options
         info['ssh_user'] = cobj.ssh_user
         info['ssh_private_key'] = cobj.ssh_private_key
         return info
 
     # 사용 가능 상태까지 기다린 후 정보 얻기.
+    info("Wait for instance to be running.")
     scd.wait_until_running()
     scd.load()
     clinfo['scheduler'] = get_inst_info(pobj.scd_inst, scd)
@@ -149,9 +151,6 @@ def create_dask_cluster(clname, pcfg, ec2, dry):
         wrk.load()
         winfo = get_inst_info(pobj.wrk_inst, wrk)
         clinfo['workers'].append(winfo)
-
-    # Dask 클러스터를 위한 원격 명령어 실행
-    # run_remote_commands(['touch /tmp/foo'], [scd.instance_id])
 
     # 성공. 클러스터 정보 저장
     clinfo['ready_time'] = datetime.datetime.now()
@@ -184,6 +183,19 @@ def load_cluster_info(clname):
     return clinfo
 
 
+def wait_until_connect(url, retry_count=10):
+    """URL 접속이 가능할 때까지 기다림."""
+    info("wait_until_connect: {}".format(url))
+    for i in range(retry_count):
+        try:
+            urlopen(url, timeout=5)
+            return
+        except URLError:
+            info("Can not connect to dashboard. Wait for a while.")
+            time.sleep(10)
+    raise ConnectionError()
+
+
 def create_cluster(profile, clname, dry):
     """클러스터 생성."""
     pcfg = read_profile(profile)
@@ -213,9 +225,9 @@ def check_cluster(clname):
     """
     if clname.lower().endswith('.json'):
         rname = clname.split('.')[0]
-        error("Wrong cluster name '{}'. Use '{}' instead ".
-              format(clname, rname))
-        raise NameError(clname)
+        msg = "Wrong cluster name '{}'. Use '{}' instead.". \
+              format(clname, rname)
+        raise NameError(msg)
 
     # file existence
     path = os.path.join(clust_dir, clname + '.json')
@@ -226,9 +238,14 @@ def check_cluster(clname):
     return path
 
 
-def show_cluster(clname):
+def show_cluster(clname, detail=False):
     """클러스터 정보를 표시."""
-    check_cluster(clname)
+    path = check_cluster(clname)
+    if detail:
+        with open(path, 'rt') as f:
+            body = f.read()
+            print(body)
+        return
 
     info = load_cluster_info(clname)
     ctype = info['type']
@@ -278,7 +295,7 @@ def destroy_cluster(clname, dry):
 
 
 def send_instance_cmd(ssh_user, ssh_private_key, public_ip, cmd,
-                      show_error=True):
+                      show_error=True, retry_count=10):
     """인스턴스에 SSH 명령어 실행
 
     https://stackoverflow.com/questions/42645196/how-to-ssh-and-run-commands-in-ec2-using-boto3
@@ -292,7 +309,8 @@ def send_instance_cmd(ssh_user, ssh_private_key, public_ip, cmd,
     Returns:
         tuple: send_command 함수의 결과 (stdout, stderr)
     """
-    warnings.filterwarnings("ignore")
+    info('send_instance_cmd - user: {}, key: {}, ip {}, cmd: "{}"'
+         .format(ssh_user, ssh_private_key, public_ip, cmd))
 
     key_path = expanduser(ssh_private_key)
 
@@ -300,13 +318,27 @@ def send_instance_cmd(ssh_user, ssh_private_key, public_ip, cmd,
     client = paramiko.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
-    client.connect(hostname=public_ip, username=ssh_user, pkey=key)
+    connected = False
+    for i in range(retry_count):
+        try:
+            client.connect(hostname=public_ip, username=ssh_user, pkey=key)
+        except paramiko.ssh_exception.NoValidConnectionsError:
+            warning("Connection failed to '{}'. Retry after a while.".
+                    format(public_ip))
+            time.sleep(5)
+        else:
+            connected = True
+            break
+
+    if not connected:
+        error("Connection failed to '{}'".format(public_ip))
+        return
 
     stdin, stdout, stderr = client.exec_command(cmd)
     stdout = stdout.read()
     stderr = stderr.read()
     if len(stderr) > 0:
-        print(stderr.decode('utf-8'))
+        error(stderr.decode('utf-8'))
 
     client.close()
 
@@ -333,10 +365,16 @@ def find_cluster_instance_by_public_ip(cluster, public_ip):
         raise NotImplementedError()
 
 
+def dask_worker_options(info, memory):
+    """Dask 클러스터 워커 인스턴스 정보에서 워커 옵션 구하기."""
+    co = info['worker_cpu_options']
+    nproc = info.get('worker_nproc', co['CoreCount'])
+    nthread = info.get('worker_nthread', co['CoreCount'])
+    return nproc, nthread, memory // nproc
+
+
 def start_cluster(clname):
     """클러스터 마스터/워커를 시작."""
-    check_cluster(clname)
-
     clpath = check_cluster(clname)
 
     with open(clpath, 'rt') as f:
@@ -344,24 +382,48 @@ def start_cluster(clname):
         data = json.loads(body)
 
     if data['type'] == 'dask':
-        critical("Start dask scheduler & workers.")
-        # 스케쥴러 시작
-        scd = data['scheduler']
-        user, private_key = scd['ssh_user'], scd['ssh_private_key']
-        public_ip = scd['public_ip']
-        scd_dns = scd['private_dns_name']
-        cmd = "screen -S 'bilbo' -d -m dask-scheduler"
-        send_instance_cmd(user, private_key, public_ip, cmd)
-        time.sleep(3)
-
-        for wrk in data['workers']:
-            # 워커 재시작
-            user, private_key = wrk['ssh_user'], wrk['ssh_private_key']
-            public_ip = wrk['public_ip']
-            cmd = "screen -S 'bilbo' -d -m dask-worker {}:8786".format(scd_dns)
-            send_instance_cmd(user, private_key, public_ip, cmd)
+        start_dask_cluster(data)
     else:
         raise NotImplementedError()
+
+
+def start_dask_cluster(data):
+    """Dask 클러스터 마스터/워커를 시작."""
+    critical("Start dask scheduler & workers.")
+
+    # 스케쥴러 시작
+    scd = data['scheduler']
+    user, private_key = scd['ssh_user'], scd['ssh_private_key']
+    public_ip = scd['public_ip']
+    scd_dns = scd['private_dns_name']
+    cmd = "screen -S bilbo -d -m dask-scheduler"
+    send_instance_cmd(user, private_key, public_ip, cmd)
+
+    wrks = data['workers']
+    # 워커 실행 옵션
+    public_ip = wrks[0]['public_ip']
+    info("  Get worker memory from '{}'".format(public_ip))
+    cmd = "free -b | grep 'Mem:' | awk '{print $2}'"
+    res = send_instance_cmd(user, private_key, public_ip, cmd)
+    memory = int(res[0].decode('utf-8'))
+    nproc, nthread, memory = dask_worker_options(data, memory)
+
+    # 워커 시작
+    for wrk in wrks:
+        # 워커 재시작
+        user, private_key = wrk['ssh_user'], wrk['ssh_private_key']
+        public_ip = wrk['public_ip']
+        opts = "--nprocs {} --nthreads {} --memory-limit {}".\
+            format(nproc, nthread, memory)
+        cmd = "screen -S bilbo -d -m dask-worker {}:8786 {}".\
+            format(scd_dns, opts)
+        info("  Worker options: {}".format(opts))
+        send_instance_cmd(user, private_key, public_ip, cmd)
+
+    # Dask 스케쥴러의 대쉬보드 기다림
+    dash_url = 'http://{}:8787'.format(scd['public_ip'])
+    critical("Waiting for Dask dashboard {} ready.".format(dash_url))
+    wait_until_connect(dash_url)
 
 
 def stop_cluster(clname):

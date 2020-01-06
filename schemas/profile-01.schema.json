@@ -70,6 +70,16 @@
                         "instance": {
                             "$ref": "#/definitions/instanceType"
                         },
+                        "nproc": {
+                            "type": "integer",
+                            "description": "Dask worker process count",
+                            "minimum": 1
+                        },
+                        "nthread": {
+                            "type": "integer",
+                            "description": "Dask worker thread per process",
+                            "minimum": 1
+                        },
                         "count": {
                             "type": "integer",
                             "description": "Dask worker instance count",
