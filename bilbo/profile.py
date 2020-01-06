@@ -66,20 +66,29 @@ def read_profile(profile):
     return pcfg
 
 
-class Node:
+class Instance:
     """프로파일 내 노드 정보."""
 
-    def __init__(self, ncfg):
-        self.ami = ncfg.get('ami')
-        self.instype = ncfg.get('instance_type')
-        self.keyname = ncfg.get('keyname')
-        self.secgroup = ncfg.get('security_group')
+    def __init__(self, icfg):
+        """설정에서 멤버 초기화."""
+        self.ami = icfg.get('ami')
+        self.ec2type = icfg.get('ec2type')
+        self.keyname = icfg.get('keyname')
+        self.secgroup = icfg.get('security_group')
+        self.ssh_user = icfg.get('ssh_user')
+        self.ssh_private_key = icfg.get('ssh_private_key')
+        self.tags = icfg.get('tags')
 
-    def overwrite(self, ncfg):
-        self.ami = ncfg.get('ami', self.ami)
-        self.instype = ncfg.get('instance_type', self.instype)
-        self.keyname = ncfg.get('keyname', self.keyname)
-        self.secgroup = ncfg.get('security_group', self.secgroup)
+    def overwrite(self, icfg):
+        """다른 설정으로 멤버 덮어쓰기."""
+        self.ami = icfg.get('ami', self.ami)
+        self.ec2type = icfg.get('ec2type', self.ec2type)
+        self.keyname = icfg.get('keyname', self.keyname)
+        self.secgroup = icfg.get('security_group', self.secgroup)
+        self.ssh_user = icfg.get('ssh_user', self.ssh_user)
+        self.ssh_private_key = icfg.get('ssh_private_key',
+                                        self.ssh_private_key)
+        self.tags = icfg.get('tags', self.tags)
 
 
 class Profile:
@@ -89,7 +98,9 @@ class Profile:
         """초기화 및 검증."""
         validate(pcfg)
         # 공통 노드 정보
-        self.node = Node(pcfg)
+        self.inst = None
+        if 'instance' in pcfg:
+            self.inst = Instance(pcfg['instance'])
 
         self.cluster = pcfg.get('cluster')
         self.cluster_type = self.cluster.get('type')
@@ -104,16 +115,20 @@ class DaskProfile(Profile):
         self.cluster = pcfg.get('cluster')
 
         # 스케쥴러
-        self.scd_node = copy(self.node)
+        self.scd_inst = copy(self.inst)
         self.scd_cnt = 1
         scfg = self.cluster.get('scheduler')
         if scfg is not None:
-            self.scd_node.overwrite(scfg)
+            sicfg = scfg.get('instance')
+            if sicfg is not None:
+                self.scd_inst.overwrite(sicfg)
 
         # 워커
-        self.wrk_node = copy(self.node)
+        self.wrk_inst = copy(self.inst)
         wcfg = self.cluster.get('worker')
         self.wrk_cnt = DEFAULT_WORKER
         if wcfg is not None:
-            self.wrk_node.overwrite(wcfg)
+            wicfg = wcfg.get('instance')
+            if wicfg is not None:
+                self.wrk_inst.overwrite(wicfg)
             self.wrk_cnt = wcfg.get('count', self.wrk_cnt)

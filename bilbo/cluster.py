@@ -35,17 +35,17 @@ def show_dask_plan(clname, pobj):
 
     print("")
     print("  Scheduler:")
-    print("    AMI: {}".format(pobj.scd_node.ami))
-    print("    Instance Type: {}".format(pobj.scd_node.instype))
-    print("    Security Group: {}".format(pobj.scd_node.secgroup))
-    print("    Key Name: {}".format(pobj.scd_node.keyname))
+    print("    AMI: {}".format(pobj.scd_inst.ami))
+    print("    Instance Type: {}".format(pobj.scd_inst.ec2type))
+    print("    Security Group: {}".format(pobj.scd_inst.secgroup))
+    print("    Key Name: {}".format(pobj.scd_inst.keyname))
 
     print("")
     print("  Worker:")
-    print("    AMI: {}".format(pobj.wrk_node.ami))
-    print("    Instance Type: {}".format(pobj.wrk_node.instype))
-    print("    Security Group: {}".format(pobj.wrk_node.secgroup))
-    print("    Key Name: {}".format(pobj.wrk_node.keyname))
+    print("    AMI: {}".format(pobj.wrk_inst.ami))
+    print("    Instance Type: {}".format(pobj.wrk_inst.ec2type))
+    print("    Security Group: {}".format(pobj.wrk_inst.secgroup))
+    print("    Key Name: {}".format(pobj.wrk_inst.keyname))
     print("    Count: {}".format(pobj.wrk_cnt))
 
     print("")
@@ -55,6 +55,21 @@ def cluster_info_exists(clname):
     """클러스터 정보가 존재하는가?"""
     path = os.path.join(clust_dir, clname + '.json')
     return os.path.isfile(path)
+
+
+def _build_tag_spec(name, _tags):
+    tags = [{'Key': 'Name', 'Value': name}]
+    for _tag in _tags:
+        tag = dict(Key=_tag[0], Value=_tag[1])
+        tags.append(tag)
+
+    tag_spec = [
+        {
+            'ResourceType': 'instance',
+            'Tags': tags
+        }
+    ]
+    return tag_spec
 
 
 def create_dask_cluster(clname, pcfg, ec2, dry):
@@ -82,19 +97,13 @@ def create_dask_cluster(clname, pcfg, ec2, dry):
 
     # create scheduler
     scd_name = '{}-dask-scheduler'.format(clname)
-    ins = ec2.create_instances(ImageId=pobj.scd_node.ami,
-                               InstanceType=pobj.scd_node.instype,
+    scd_tag_spec = _build_tag_spec(scd_name, pobj.scd_inst.tags)
+    ins = ec2.create_instances(ImageId=pobj.scd_inst.ami,
+                               InstanceType=pobj.scd_inst.ec2type,
                                MinCount=pobj.scd_cnt, MaxCount=pobj.scd_cnt,
-                               KeyName=pobj.scd_node.keyname,
-                               SecurityGroupIds=[pobj.scd_node.secgroup],
-                               TagSpecifications=[
-                                   {
-                                       'ResourceType': 'instance',
-                                       'Tags': [
-                                           {'Key': 'Name', 'Value': scd_name}
-                                       ]
-                                   }
-                               ],
+                               KeyName=pobj.scd_inst.keyname,
+                               SecurityGroupIds=[pobj.scd_inst.secgroup],
+                               TagSpecifications=scd_tag_spec,
                                DryRun=dry)
 
     scd = ins[0]
@@ -103,26 +112,20 @@ def create_dask_cluster(clname, pcfg, ec2, dry):
 
     # create worker
     wrk_name = '{}-dask-worker'.format(clname)
-    ins = ec2.create_instances(ImageId=pobj.wrk_node.ami,
-                               InstanceType=pobj.wrk_node.instype,
+    wrk_tag_spec = _build_tag_spec(wrk_name, pobj.wrk_inst.tags)
+    ins = ec2.create_instances(ImageId=pobj.wrk_inst.ami,
+                               InstanceType=pobj.wrk_inst.ec2type,
                                MinCount=pobj.wrk_cnt, MaxCount=pobj.wrk_cnt,
-                               KeyName=pobj.wrk_node.keyname,
-                               SecurityGroupIds=[pobj.wrk_node.secgroup],
-                               TagSpecifications=[
-                                   {
-                                       'ResourceType': 'instance',
-                                       'Tags': [
-                                           {'Key': 'Name', 'Value': wrk_name}
-                                       ]
-                                   }
-                               ],
+                               KeyName=pobj.wrk_inst.keyname,
+                               SecurityGroupIds=[pobj.wrk_inst.secgroup],
+                               TagSpecifications=wrk_tag_spec,
                                DryRun=dry)
 
     clinfo['workers'] = []
     for wrk in ins:
         clinfo['instances'].append(wrk.instance_id)
 
-    def get_node_info(ec2):
+    def get_inst_info(ec2):
         info = {}
         info['image_id'] = ec2.image_id
         info['instance_id'] = ec2.instance_id
@@ -135,12 +138,12 @@ def create_dask_cluster(clname, pcfg, ec2, dry):
     # 사용 가능 상태까지 기다린 후 정보 얻기.
     scd.wait_until_running()
     scd.load()
-    clinfo['scheduler'] = get_node_info(scd)
+    clinfo['scheduler'] = get_inst_info(scd)
 
     for wrk in ins:
         wrk.wait_until_running()
         wrk.load()
-        winfo = get_node_info(wrk)
+        winfo = get_inst_info(wrk)
         clinfo['workers'].append(winfo)
 
     # Dask 클러스터를 위한 원격 명령어 실행

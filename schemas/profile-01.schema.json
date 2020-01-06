@@ -3,75 +3,19 @@
     "title": "cluster",
     "description": "Bilbo schema for cluster",
     "definitions": {
-        "instanceInfo": {
+        "instanceType": {
             "description": "Instance type config",
+            "additionalProperties": false,
             "properties": {
                 "ami": {
                     "type": "string",
                     "description": "AWS machine image ID",
                     "pattern": "^ami-[0-9a-f]+$"
                 },
-                "instance_type": {
+                "ec2type": {
                     "type": "string",
                     "description": "EC2 Instance type"
-                }
-            }
-        },
-        "daskType": {
-            "description": "Dask cluster config",
-            "properties": {
-                "type": {
-                    "const": "dask"
                 },
-                "scheduler": {
-                    "$ref": "#/definitions/instanceInfo"
-                },
-                "worker": {
-                    "allOf": [
-                        { "$ref": "#/definitions/instanceInfo" },
-                        {
-                            "properties": {
-                                "count": {
-                                    "type": "integer",
-                                    "description": "Dask worker instance count",
-                                    "minimum": 1
-                                    }
-                            }
-                        }
-
-                    ]
-                }
-            },
-            "required": ["type"]
-        },
-        "rayType": {
-            "description": "Ray cluster config",
-            "properties": {
-                "type": {
-                    "const": "ray"
-                }
-            },
-            "required": ["type"]
-        },
-        "sshType": {
-            "description": "SSH config",
-            "properties": {
-                "user": {
-                    "type": "string",
-                    "description": "User for SSH login"
-                },
-                "private_key": {
-                    "type": "string",
-                    "description": "Private key for SSH login"
-                }
-            },
-            "required": ["user", "private_key"]
-        }
-    },
-    "allOf": [
-        { "$ref": "#/definitions/instanceInfo" },
-        {
-            "properties": {
                 "keyname": {
                     "type": "string",
                     "description": "The instance's EC2 Key-pair name"
@@ -81,17 +25,88 @@
                     "description": "Security group id for instance",
                     "pattern": "^sg-[0-9a-f]+$"
                 },
-                "cluster": {
-                    "oneOf": [
-                        { "$ref": "#/definitions/daskType"},
-                        { "$ref": "#/definitions/rayType"}
-                        ]
+                "ssh_user": {
+                    "type": "string",
+                    "description": "User for SSH login"
                 },
-                "ssh": {
-                    "$ref": "#/definitions/sshType"
+                "ssh_private_key": {
+                    "type": "string",
+                    "description": "Private key for SSH login"
+                },
+                "tags": {
+                    "type": "array",
+                    "description": "Instance tag list",
+
+                    "items": {
+                        "type": "array",
+                        "description": "Tag item",
+                        "minItems": 2,
+                        "maxItems": 2,
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "daskType": {
+            "description": "Dask cluster config",
+            "additionalProperties": false,
+            "properties": {
+                "type": {
+                    "const": "dask"
+                },
+                "scheduler": {
+                    "additionalProperties": false,
+                    "properties": {
+                        "instance": {
+                            "$ref": "#/definitions/instanceType"
+                    }
+                    }
+                },
+                "worker": {
+                    "additionalProperties": false,
+                    "properties": {
+                        "instance": {
+                            "$ref": "#/definitions/instanceType"
+                        },
+                        "count": {
+                            "type": "integer",
+                            "description": "Dask worker instance count",
+                            "minimum": 1
+                        }
+                    }
                 }
             },
-            "required": ["cluster", "ssh"]
+            "required": ["type"]
+        },
+        "rayType": {
+            "description": "Ray cluster config",
+            "additionalProperties": false,
+            "properties": {
+                "type": {
+                    "const": "ray"
+                }
+            },
+            "required": ["type"]
         }
-    ]
+    },
+    "additionalProperties": false,
+    "properties": {
+        "$schema": {
+            "type": "string",
+            "description": "Schema URI"
+        },
+        "instance": {
+            "description": "Instance configuration",
+            "$ref": "#/definitions/instanceType"
+        },
+        "cluster": {
+            "oneOf": [
+                { "$ref": "#/definitions/daskType"},
+                { "$ref": "#/definitions/rayType"}
+                ]
+        }
+    },
+    "required": ["cluster"]
 }
