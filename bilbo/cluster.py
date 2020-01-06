@@ -4,6 +4,8 @@ from os.path import expanduser
 import json
 import datetime
 import warnings
+import time
+import webbrowser
 
 import boto3
 import paramiko
@@ -125,25 +127,27 @@ def create_dask_cluster(clname, pcfg, ec2, dry):
     for wrk in ins:
         clinfo['instances'].append(wrk.instance_id)
 
-    def get_inst_info(ec2):
+    def get_inst_info(cobj, inst):
         info = {}
-        info['image_id'] = ec2.image_id
-        info['instance_id'] = ec2.instance_id
-        info['public_ip'] = ec2.public_ip_address
-        info['private_dns_name'] = ec2.private_dns_name
-        info['key_name'] = ec2.key_name
+        info['image_id'] = inst.image_id
+        info['instance_id'] = inst.instance_id
+        info['public_ip'] = inst.public_ip_address
+        info['private_dns_name'] = inst.private_dns_name
+        info['key_name'] = inst.key_name
+        info['cpu_options'] = inst.cpu_options
+        info['ssh_user'] = cobj.ssh_user
+        info['ssh_private_key'] = cobj.ssh_private_key
         return info
-
 
     # 사용 가능 상태까지 기다린 후 정보 얻기.
     scd.wait_until_running()
     scd.load()
-    clinfo['scheduler'] = get_inst_info(scd)
+    clinfo['scheduler'] = get_inst_info(pobj.scd_inst, scd)
 
     for wrk in ins:
         wrk.wait_until_running()
         wrk.load()
-        winfo = get_inst_info(wrk)
+        winfo = get_inst_info(pobj.wrk_inst, wrk)
         clinfo['workers'].append(winfo)
 
     # Dask 클러스터를 위한 원격 명령어 실행
@@ -224,6 +228,8 @@ def check_cluster(clname):
 
 def show_cluster(clname):
     """클러스터 정보를 표시."""
+    check_cluster(clname)
+
     info = load_cluster_info(clname)
     ctype = info['type']
 
@@ -239,23 +245,28 @@ def show_cluster(clname):
 
 
 def show_dask_cluster(info):
+    inst_idx = 0
     print("")
     print("Scheduler:")
     scd = info['scheduler']
-    print("  instance_id: {}, public_ip: {}".format(scd['instance_id'],
-          scd['public_ip']))
+    print("  [{}] instance_id: {}, public_ip: {}".
+          format(inst_idx, scd['instance_id'], scd['public_ip']))
+    inst_idx += 1
 
     print("")
     print("Workers:")
     wrks = info['workers']
-    for wi, wrk in enumerate(wrks):
+    for wrk in wrks:
         print("  [{}] instance_id: {}, public_ip: {}".
-              format(wi + 1, wrk['instance_id'], wrk['public_ip']))
+              format(inst_idx, wrk['instance_id'], wrk['public_ip']))
+        inst_idx += 1
     print("")
 
 
 def destroy_cluster(clname, dry):
     """클러스터 제거."""
+    check_cluster(clname)
+
     critical("Destroy cluster '{}'.".format(clname))
     info = load_cluster_info(clname)
 
@@ -266,35 +277,133 @@ def destroy_cluster(clname, dry):
     os.unlink(path)
 
 
-def send_instance_cmd(profile, public_ip, cmd):
+def send_instance_cmd(ssh_user, ssh_private_key, public_ip, cmd,
+                      show_error=True):
     """인스턴스에 SSH 명령어 실행
 
     https://stackoverflow.com/questions/42645196/how-to-ssh-and-run-commands-in-ec2-using-boto3
 
     Args:
-        profile (str): 프로파일명
+        ssh_user (str): SSH 유저
+        ssh_private_key (str): SSH Private Key 경로
         public_ip (str): 대상 인스턴스의 IP
         cmd (list): 커맨드 문자열 리스트
 
     Returns:
-        send_command 함수의 결과
+        tuple: send_command 함수의 결과 (stdout, stderr)
     """
     warnings.filterwarnings("ignore")
 
-    pcfg = read_profile(profile)
-    ssh = pcfg['ssh']
-    user = ssh['user']
-    private_key = expanduser(ssh['private_key'])
+    key_path = expanduser(ssh_private_key)
 
-    key = paramiko.RSAKey.from_private_key_file(private_key)
+    key = paramiko.RSAKey.from_private_key_file(key_path)
     client = paramiko.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
-    client.connect(hostname=public_ip, username=user, pkey=key)
+    client.connect(hostname=public_ip, username=ssh_user, pkey=key)
 
     stdin, stdout, stderr = client.exec_command(cmd)
-    result = stdout.read()
-    if len(result) > 0:
-        print(result)
+    stdout = stdout.read()
+    stderr = stderr.read()
+    if len(stderr) > 0:
+        print(stderr.decode('utf-8'))
 
     client.close()
+
+    return stdout, stderr
+
+
+def find_cluster_instance_by_public_ip(cluster, public_ip):
+    """Public IP로 클러스터 인스턴스 정보 찾기."""
+    clpath = check_cluster(cluster)
+
+    with open(clpath, 'rt') as f:
+        body = f.read()
+        data = json.loads(body)
+
+    if data['type'] == 'dask':
+        scd = data['scheduler']
+        if scd['public_ip'] == public_ip:
+            return scd
+        wrks = data['workers']
+        for wrk in wrks:
+            if wrk['public_ip'] == public_ip:
+                return wrk
+    else:
+        raise NotImplementedError()
+
+
+def start_cluster(clname):
+    """클러스터 마스터/워커를 시작."""
+    check_cluster(clname)
+
+    clpath = check_cluster(clname)
+
+    with open(clpath, 'rt') as f:
+        body = f.read()
+        data = json.loads(body)
+
+    if data['type'] == 'dask':
+        critical("Start dask scheduler & workers.")
+        # 스케쥴러 시작
+        scd = data['scheduler']
+        user, private_key = scd['ssh_user'], scd['ssh_private_key']
+        public_ip = scd['public_ip']
+        scd_dns = scd['private_dns_name']
+        cmd = "screen -S 'bilbo' -d -m dask-scheduler"
+        send_instance_cmd(user, private_key, public_ip, cmd)
+        time.sleep(3)
+
+        for wrk in data['workers']:
+            # 워커 재시작
+            user, private_key = wrk['ssh_user'], wrk['ssh_private_key']
+            public_ip = wrk['public_ip']
+            cmd = "screen -S 'bilbo' -d -m dask-worker {}:8786".format(scd_dns)
+            send_instance_cmd(user, private_key, public_ip, cmd)
+    else:
+        raise NotImplementedError()
+
+
+def stop_cluster(clname):
+    """클러스터 마스터/워커를 중지."""
+    clpath = check_cluster(clname)
+
+    with open(clpath, 'rt') as f:
+        body = f.read()
+        data = json.loads(body)
+
+    if data['type'] == 'dask':
+        critical("Stop dask scheduler & workers.")
+        # 스케쥴러 중지
+        scd = data['scheduler']
+        user, private_key = scd['ssh_user'], scd['ssh_private_key']
+        public_ip = scd['public_ip']
+        cmd = "screen -X -S 'bilbo' quit"
+        send_instance_cmd(user, private_key, public_ip, cmd)
+
+        for wrk in data['workers']:
+            # 워커 중지
+            user, private_key = wrk['ssh_user'], wrk['ssh_private_key']
+            public_ip = wrk['public_ip']
+            cmd = "screen -X -S 'bilbo' quit"
+            send_instance_cmd(user, private_key, public_ip, cmd)
+    else:
+        raise NotImplementedError()
+
+
+def open_dashboard(clname):
+    """클러스터의 대쉬보드 열기."""
+    clpath = check_cluster(clname)
+
+    with open(clpath, 'rt') as f:
+        body = f.read()
+        data = json.loads(body)
+
+    if data['type'] == 'dask':
+        # 스케쥴러 중지
+        scd = data['scheduler']
+        public_ip = scd['public_ip']
+        url = "http://{}:8787".format(public_ip)
+        webbrowser.open(url)
+    else:
+        raise NotImplementedError()

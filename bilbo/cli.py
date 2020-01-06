@@ -7,7 +7,9 @@ import botocore
 from bilbo.version import VERSION
 from bilbo.util import set_log_verbosity, iter_profiles
 from bilbo.cluster import create_cluster, show_plan, show_cluster, \
-    destroy_cluster, show_all_cluster, check_cluster, send_instance_cmd
+    destroy_cluster, show_all_cluster, send_instance_cmd, \
+    find_cluster_instance_by_public_ip, stop_cluster, start_cluster, \
+    open_dashboard
 from bilbo.profile import check_profile
 
 
@@ -32,6 +34,7 @@ def create(profile, name, dry):
 
     try:
         create_cluster(profile, name, dry)
+        start_cluster(name)
     except botocore.exceptions.ClientError as e:
         if "Request would have succeeded" in str(e):
             print("Create cluster succeded in dry mode.")
@@ -71,10 +74,9 @@ def list_profiles():
 def destroy(cluster, dry):
     """클러스터 파괴."""
     try:
-        check_cluster(cluster)
+        destroy_cluster(cluster, dry)
     except Exception:
         return
-    destroy_cluster(cluster, dry)
 
 
 @main.group(help="Describe things [..]")
@@ -100,30 +102,43 @@ def desc_profile(profile):
 def desc_cluster(cluster):
     """프로파일을 설명."""
     try:
-        check_cluster(cluster)
+        show_cluster(cluster)
     except Exception:
         return
+
+
+@main.command(help="Restart cluster.")
+@click.argument('CLUSTER')
+def restart(cluster):
     try:
-        show_cluster(cluster)
-    except FileNotFoundError:
-        print("Cluster '{}' does not exist.".format(cluster))
+        stop_cluster(cluster)
+        start_cluster(cluster)
+    except Exception:
+        return
 
 
-@main.group(help="Send command [..]")
-def cmd():
-    pass
-
-
-@cmd.command('instance', help="Command to a instance.")
-@click.argument('PROFILE')
+@main.command(help="Command to a cluster instance.")
+@click.argument('CLUSTER')
 @click.argument('PUBLIC_IP')
 @click.argument('CMD')
-def cmd_instance(profile, public_ip, cmd):
+def rcmd(cluster, public_ip, cmd):
+    # 존재하는 클러스터에서 인스턴스 IP로 정보를 찾음
+    info = find_cluster_instance_by_public_ip(cluster, public_ip)
+    ssh_user = info['ssh_user']
+    ssh_private_key = info['ssh_private_key']
+    stdout, _ = send_instance_cmd(ssh_user, ssh_private_key, public_ip, cmd)
+
+    if len(stdout) > 0:
+        print(stdout.decode('utf-8'))
+
+
+@main.command(help="Open dashboard.")
+@click.argument('CLUSTER')
+def dashboard(cluster):
     try:
-        check_profile(profile)
+        open_dashboard(cluster)
     except Exception:
         return
-    send_instance_cmd(profile, public_ip, cmd)
 
 
 @main.command(help='Show bilbo version.')
