@@ -1,6 +1,6 @@
 """프로파일 테스트."""
 
-from bilbo.profile import DaskProfile
+from bilbo.profile import Profile, DaskProfile
 
 
 def test1():
@@ -27,9 +27,11 @@ def test1():
     assert pro.inst.ssh_user == 'ubuntu'
     assert pro.inst.ssh_private_key == 'base-key.pem'
     assert pro.inst.secgroup is None
-    assert pro.cluster_type == 'dask'
+    assert pro.type == 'dask'
     assert len(pro.inst.tags) == 2
     assert len(pro.inst.tags[0]) == 2
+
+    assert pro.nb_inst is None
 
     assert pro.scd_inst.ami == 'ami-000'
     assert pro.scd_inst.ec2type == 'base-ec2type'
@@ -93,7 +95,8 @@ def test2():
     assert pro.inst.ami == 'ami-000'
     assert pro.inst.ec2type == 'base-ec2type'
     assert pro.inst.secgroup == 'sg-000'
-    assert pro.cluster_type == 'dask'
+    assert pro.clcfg is not None
+    assert pro.type == 'dask'
 
     assert pro.scd_inst.ami == 'ami-001'
     assert pro.scd_inst.ec2type == 'scd-ec2type'
@@ -115,3 +118,29 @@ def test2():
     assert len(pro.wrk_inst.tags) == 2
     assert pro.wrk_inst.tags[0][1] == "WrkOwner"
 
+
+def test3():
+    cfg = {
+        "instance": {
+            'ami': 'ami-000',
+            "ec2type": "base-ec2type",
+            "security_group": "sg-000",
+            "keyname": "base-key",
+            "ssh_user": "ubuntu",
+            "ssh_private_key": "~/.ssh/base-key.pem",
+            "tags": [
+                ["Owner", "BaseOwner"],
+                ["Service", "BaseService"]
+            ]
+        },
+        "notebook": {
+            "instance": {
+                "ec2type": "m5.xlarge"
+            }
+        }
+    }
+    pro = Profile(cfg)
+    assert pro.nb_inst is not None
+    assert pro.nb_inst.ami == 'ami-000'
+    assert pro.nb_inst.ec2type == "m5.xlarge"
+    assert pro.clcfg is None

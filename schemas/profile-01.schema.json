@@ -60,14 +60,16 @@
                     "additionalProperties": false,
                     "properties": {
                         "instance": {
+                            "description": "Scheduler instance configuration",
                             "$ref": "#/definitions/instanceType"
-                    }
+                        }
                     }
                 },
                 "worker": {
                     "additionalProperties": false,
                     "properties": {
                         "instance": {
+                            "description": "Worker instance configuration",
                             "$ref": "#/definitions/instanceType"
                         },
                         "nproc": {
@@ -108,15 +110,24 @@
             "description": "Schema URI"
         },
         "instance": {
-            "description": "Instance configuration",
+            "description": "Common instance configuration",
             "$ref": "#/definitions/instanceType"
         },
+        "notebook": {
+            "description": "Notebook configuration",
+            "properties": {
+                "instance": {
+                    "description": "Scheduler instance configuration",
+                    "$ref": "#/definitions/instanceType"
+                }
+            }
+        },
         "cluster": {
+            "description": "Cluster configuration",
             "oneOf": [
                 { "$ref": "#/definitions/daskType"},
                 { "$ref": "#/definitions/rayType"}
-                ]
+            ]
         }
-    },
-    "required": ["cluster"]
+    }
 }

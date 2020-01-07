@@ -102,8 +102,19 @@ class Profile:
         if 'instance' in pcfg:
             self.inst = Instance(pcfg['instance'])
 
-        self.cluster = pcfg.get('cluster')
-        self.cluster_type = self.cluster.get('type')
+        # 노트북 정보
+        self.nb_inst = None
+        ncfg = pcfg.get('notebook')
+        if ncfg is not None:
+            self.nb_inst = copy(self.inst)
+            nicfg = ncfg.get('instance')
+            if nicfg is not None:
+                self.nb_inst.overwrite(nicfg)
+
+        self.clcfg = pcfg.get('cluster')
+        self.type = None
+        if self.clcfg is not None:
+            self.type = self.clcfg.get('type')
 
 
 class DaskProfile(Profile):
@@ -113,12 +124,12 @@ class DaskProfile(Profile):
         pretty = json.dumps(pcfg, indent=4, sort_keys=True)
         info("Create DaskProfile from config:\n{}".format(pretty))
         super(DaskProfile, self).__init__(pcfg)
-        self.cluster = pcfg.get('cluster')
+        self.clcfg = pcfg.get('cluster')
 
         # 스케쥴러
         self.scd_inst = copy(self.inst)
         self.scd_cnt = 1
-        scfg = self.cluster.get('scheduler')
+        scfg = self.clcfg.get('scheduler')
         if scfg is not None:
             sicfg = scfg.get('instance')
             if sicfg is not None:
@@ -126,7 +137,7 @@ class DaskProfile(Profile):
 
         # 워커
         self.wrk_inst = copy(self.inst)
-        wcfg = self.cluster.get('worker')
+        wcfg = self.clcfg.get('worker')
         self.wrk_cnt = DEFAULT_WORKER
         if wcfg is not None:
             wicfg = wcfg.get('instance')
@@ -135,3 +146,56 @@ class DaskProfile(Profile):
             self.wrk_cnt = wcfg.get('count', self.wrk_cnt)
             self.wrk_nthread = wcfg.get('nthread')
             self.wrk_nproc = wcfg.get('nproc')
+
+
+def show_plan(profile, clname):
+    """실행 계획 표시"""
+    pcfg = read_profile(profile)
+    if clname is None:
+        clname = profile.lower().split('.')[0]
+    ccfg = pcfg['cluster']
+    cltype = ccfg['type']
+
+    print("Bilbo will create '{}' cluster with following options:".
+          format(clname))
+
+    if cltype == 'dask':
+        pobj = DaskProfile(pcfg)
+    else:
+        raise NotImplementedError(cltype)
+
+    if pobj.nb_inst is not None:
+        print("")
+        print("  Notebook:")
+        show_instance_plan(pobj.nb_inst)
+        print("")
+
+    cltype = hasattr(pobj, 'type')
+    if hasattr(pobj, 'type'):
+        cltype = pobj.type
+        if cltype == 'dask':
+            show_dask_plan(clname, pobj)
+        else:
+            raise NotImplementedError(cltype)
+
+
+def show_instance_plan(inst):
+    """인스턴스 플랜."""
+    print("    AMI: {}".format(inst.ami))
+    print("    Instance Type: {}".format(inst.ec2type))
+    print("    Security Group: {}".format(inst.secgroup))
+    print("    Key Name: {}".format(inst.keyname))
+
+
+def show_dask_plan(clname, pobj):
+    """클러스터 생성 계획 표시."""
+    print("  Cluster Type: Dask")
+
+    print("")
+    print("  1 Scheduler:")
+    show_instance_plan(pobj.scd_inst)
+
+    print("")
+    print("  {} Worker(s):".format(pobj.wrk_cnt))
+    show_instance_plan(pobj.wrk_inst)
+    print("")
