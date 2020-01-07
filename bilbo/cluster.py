@@ -455,7 +455,7 @@ def start_dask_cluster(clinfo):
     cmd = "screen -S bilbo -d -m dask-scheduler"
     send_instance_cmd(user, private_key, public_ip, cmd)
 
-    winfo = clinfo['workers']
+    winfo = clinfo['worker']
     # 워커 실행 옵션
     public_ip = winfo['instances'][0]['public_ip']
     info("  Get worker memory from '{}'".format(public_ip))
@@ -508,7 +508,7 @@ def stop_cluster(clname):
         cmd = "screen -X -S 'bilbo' quit"
         send_instance_cmd(user, private_key, public_ip, cmd)
 
-        for wrk in data['workers']:
+        for wrk in data['worker']:
             # 워커 중지
             user, private_key = wrk['ssh_user'], wrk['ssh_private_key']
             public_ip = wrk['public_ip']
