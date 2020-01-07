@@ -106,8 +106,10 @@ def test_dask(cluster):
 
     assert 'worker' in clinfo
     winfo = clinfo['worker']
-    assert 'public_ip' in winfo
-    assert 'private_dns_name' in winfo
     assert winfo['nthread'] == 2
     assert winfo['nproc'] == winfo['cpu_options']['CoreCount']
-    assert len(winfo['instances']) == 2
+    wins = winfo['instances']
+    assert len(wins) == 2
+    wins = winfo['instances']
+    assert 'public_ip' in wins[0]
+    assert 'private_dns_name' in wins[0]
