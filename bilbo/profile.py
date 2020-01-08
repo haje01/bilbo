@@ -111,8 +111,7 @@ class Profile:
             if nicfg is not None:
                 self.nb_inst.overwrite(nicfg)
 
-        self.clcfg = pcfg.get('cluster')
-        self.type = None
+        self.clcfg = pcfg.get('dask')
         if self.clcfg is not None:
             self.type = self.clcfg.get('type')
 
@@ -124,7 +123,8 @@ class DaskProfile(Profile):
         pretty = json.dumps(pcfg, indent=4, sort_keys=True)
         info("Create DaskProfile from config:\n{}".format(pretty))
         super(DaskProfile, self).__init__(pcfg)
-        self.clcfg = pcfg.get('cluster')
+        self.type = 'dask'
+        self.clcfg = pcfg.get('dask')
 
         # 스케쥴러
         self.scd_inst = copy(self.inst)
@@ -153,30 +153,27 @@ def show_plan(profile, clname):
     pcfg = read_profile(profile)
     if clname is None:
         clname = profile.lower().split('.')[0]
-    ccfg = pcfg['cluster']
-    cltype = ccfg['type']
 
-    print("Bilbo will create '{}' cluster with following options:".
-          format(clname))
-
-    if cltype == 'dask':
-        pobj = DaskProfile(pcfg)
+    if 'dask' not in pcfg:
+        pobj = Profile(pcfg)
     else:
-        raise NotImplementedError(cltype)
+        print("Bilbo will create Dask cluster with following options:")
+        pobj = DaskProfile(pcfg)
 
+    has_instance = False
     if pobj.nb_inst is not None:
         print("")
         print("  Notebook:")
         show_instance_plan(pobj.nb_inst)
+        has_instance = True
         print("")
 
-    cltype = hasattr(pobj, 'type')
-    if hasattr(pobj, 'type'):
-        cltype = pobj.type
-        if cltype == 'dask':
-            show_dask_plan(clname, pobj)
-        else:
-            raise NotImplementedError(cltype)
+    if hasattr(pobj, 'dask'):
+        show_dask_plan(clname, pobj)
+        has_instance = True
+
+    if not has_instance:
+        print("\nNothing to do.\n")
 
 
 def show_instance_plan(inst):

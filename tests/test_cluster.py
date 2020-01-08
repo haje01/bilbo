@@ -32,6 +32,22 @@ def cluster():
     os.unlink(propath)
 
 
+def test_empty(cluster):
+    clinfo = cluster("""
+    {
+    "$schema": "https://raw.githubusercontent.com/haje01/bilbo/master/schemas/profile-01.schema.json",
+    "instance": {
+        "ami": "ami-0f49fa254e1806b72",
+        "ec2type": "t3.micro",
+        "security_group": "sg-0bc538e0a7c089b4d",
+        "keyname": "wzdat-seoul",
+        "ssh_user": "ubuntu",
+        "ssh_private_key": "~/.ssh/my-private.pem"
+    }
+}""")
+    assert len(clinfo['instances']) == 0
+
+
 def test_notebook_only(cluster):
     """노트북만 테스트."""
     clinfo = cluster("""
@@ -43,15 +59,11 @@ def test_notebook_only(cluster):
         "keyname": "wzdat-seoul",
         "security_group": "sg-0bc538e0a7c089b4d",
         "ssh_user": "ubuntu",
-        "ssh_private_key": "~/.ssh/wzdat-seoul.pem",
-        "tags": [
-            ["Owner", "haje01@webzen.com"]
-        ]
+        "ssh_private_key": "~/.ssh/wzdat-seoul.pem"
     },
     "notebook": {
         "instance": {
-            "ec2type": "t3.nano",
-            "tags": [ ["type", "notebook" ]]
+            "ec2type": "t3.nano"
         }
     }
 }
@@ -62,7 +74,6 @@ def test_notebook_only(cluster):
     assert 'notebook' in clinfo
     ninfo = clinfo['notebook']
     assert ninfo['ec2type'] == 't3.nano'
-    assert len(ninfo['tags']) == 2
 
 
 def test_dask(cluster):
@@ -81,8 +92,7 @@ def test_dask(cluster):
             ["Owner", "haje01@gmail.com"]
         ]
     },
-    "cluster": {
-        "type": "dask",
+    "dask": {
         "worker": {
             "instance": {
                 "ec2type": "t3.micro"

@@ -27,9 +27,11 @@ def cluster_info_exists(clname):
 
 def _build_tag_spec(name, _tags):
     tags = [{'Key': 'Name', 'Value': name}]
-    for _tag in _tags:
-        tag = dict(Key=_tag[0], Value=_tag[1])
-        tags.append(tag)
+
+    if _tags is not None:
+        for _tag in _tags:
+            tag = dict(Key=_tag[0], Value=_tag[1])
+            tags.append(tag)
 
     tag_spec = [
         {
@@ -67,7 +69,8 @@ def get_type_instance_info(pobj, only_inst=None):
         info['instance_id'] = only_inst.instance_id
         info['public_ip'] = only_inst.public_ip_address
         info['private_dns_name'] = only_inst.private_dns_name
-        info['tags'] = only_inst.tags
+        if only_inst.tags is not None:
+            info['tags'] = only_inst.tags
     return info
 
 
@@ -131,7 +134,6 @@ def create_dask_cluster(clname, pobj, ec2, clinfo):
 
 def save_cluster_info(clname, clinfo):
     """클러스터 정보파일 쓰기."""
-
     def json_default(value):
         if isinstance(value, datetime.date):
             return value.strftime('%Y-%m-%d %H:%M:%S')
@@ -200,13 +202,9 @@ def create_cluster(profile, clname):
 
     # 클러스터 생성
     clinfo = {'name': clname, 'instances': []}
-    if 'cluster' in pcfg:
-        cltype = pcfg['cluster']['type']
-        if cltype == 'dask':
-            pobj = DaskProfile(pcfg)
-            create_dask_cluster(clname, pobj, ec2, clinfo)
-        else:
-            raise NotImplementedError(cltype)
+    if 'dask' in pcfg:
+        pobj = DaskProfile(pcfg)
+        create_dask_cluster(clname, pobj, ec2, clinfo)
     else:
         pobj = Profile(pcfg)
 
@@ -255,11 +253,9 @@ def show_cluster(clname, detail=False):
         return
 
     info = load_cluster_info(clname)
-    ctype = info['type']
 
     print("")
     print("Name: {}".format(info['name']))
-    print("Type: {}".format(info['type']))
     print("Ready Time: {}".format(info['ready_time']))
 
     idx = 1
@@ -268,10 +264,14 @@ def show_cluster(clname, detail=False):
         print("Notebook:")
         idx = show_instance(idx, info['notebook'])
 
-    if ctype == 'dask':
-        show_dask_cluster(idx, info)
-    else:
-        raise NotImplementedError()
+    if 'type' in info:
+        cltype = info['type']
+        print("Type: {}".format(cltype))
+        if cltype == 'dask':
+            show_dask_cluster(idx, info)
+        else:
+            raise NotImplementedError()
+    print("")
 
 
 def show_instance(idx, inst):
@@ -289,10 +289,9 @@ def show_dask_cluster(idx, info):
 
     print("")
     print("Workers:")
-    winfo = info['workers']
+    winfo = info['worker']
     for wrk in winfo['instances']:
         idx = show_instance(idx, wrk)
-    print("")
 
 
 def destroy_cluster(clname):
@@ -302,9 +301,13 @@ def destroy_cluster(clname):
     critical("Destroy cluster '{}'.".format(clname))
     info = load_cluster_info(clname)
 
+    # 인스턴스 제거
     ec2 = boto3.client('ec2')
-    ec2.terminate_instances(InstanceIds=info['instances'])
+    instances = info['instances']
+    if len(instances) > 0:
+        ec2.terminate_instances(InstanceIds=info['instances'])
 
+    # 클러스터 파일 제거
     path = os.path.join(clust_dir, clname + '.json')
     os.unlink(path)
 

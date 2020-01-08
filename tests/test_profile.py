@@ -16,9 +16,7 @@ def test1():
                 ["Service", "BaseService"]
             ]
         },
-        "cluster": {
-            "type": "dask"
-        }
+        "dask": {}
     }
     pro = DaskProfile(cfg)
     assert pro.inst.ami == 'ami-000'
@@ -60,8 +58,7 @@ def test2():
                 ["Service", "BaseService"]
             ]
         },
-        "cluster": {
-            "type": "dask",
+        "dask": {
             'scheduler': {
                 "instance": {
                     'ami': 'ami-001',
@@ -96,7 +93,7 @@ def test2():
     assert pro.inst.ec2type == 'base-ec2type'
     assert pro.inst.secgroup == 'sg-000'
     assert pro.clcfg is not None
-    assert pro.type == 'dask'
+    assert type(pro) is DaskProfile
 
     assert pro.scd_inst.ami == 'ami-001'
     assert pro.scd_inst.ec2type == 'scd-ec2type'
@@ -143,4 +140,3 @@ def test3():
     assert pro.nb_inst is not None
     assert pro.nb_inst.ami == 'ami-000'
     assert pro.nb_inst.ec2type == "m5.xlarge"
-    assert pro.clcfg is None

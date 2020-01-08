@@ -28,6 +28,8 @@ def create(profile, name):
     """클러스터 생성."""
     check_profile(profile)
     clinfo = create_cluster(profile, name)
+    if name is None:
+        name = clinfo['name']
     start_cluster(clinfo)
     save_cluster_info(name, clinfo)
     show_cluster(name)

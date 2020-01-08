@@ -53,9 +53,6 @@
             "description": "Dask cluster config",
             "additionalProperties": false,
             "properties": {
-                "type": {
-                    "const": "dask"
-                },
                 "scheduler": {
                     "additionalProperties": false,
                     "properties": {
@@ -89,18 +86,11 @@
                         }
                     }
                 }
-            },
-            "required": ["type"]
+            }
         },
         "rayType": {
             "description": "Ray cluster config",
-            "additionalProperties": false,
-            "properties": {
-                "type": {
-                    "const": "ray"
-                }
-            },
-            "required": ["type"]
+            "additionalProperties": false
         }
     },
     "additionalProperties": false,
@@ -122,12 +112,9 @@
                 }
             }
         },
-        "cluster": {
-            "description": "Cluster configuration",
-            "oneOf": [
-                { "$ref": "#/definitions/daskType"},
-                { "$ref": "#/definitions/rayType"}
-            ]
+        "dask": {
+            "description": "Dask configuration",
+            "$ref": "#/definitions/daskType"
         }
     }
 }
