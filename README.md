@@ -14,6 +14,7 @@ bilbo 는 Linux, macOS, Windows 에서 사용 가능하며, Python 3.6 이상 �
 ---
   - [준비 작업](#%ec%a4%80%eb%b9%84-%ec%9e%91%ec%97%85)
     - [bilbo 설치](#bilbo-%ec%84%a4%ec%b9%98)
+    - [AWS 환경 준비](#aws-%ed%99%98%ea%b2%bd-%ec%a4%80%eb%b9%84)
     - [AMI (Amazon Machine Image) 만들기](#ami-amazon-machine-image-%eb%a7%8c%eb%93%a4%ea%b8%b0)
       - [Packer 설정 파일 만들기](#packer-%ec%84%a4%ec%a0%95-%ed%8c%8c%ec%9d%bc-%eb%a7%8c%eb%93%a4%ea%b8%b0)
       - [설치 스크립트](#%ec%84%a4%ec%b9%98-%ec%8a%a4%ed%81%ac%eb%a6%bd%ed%8a%b8)
