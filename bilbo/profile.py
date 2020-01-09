@@ -187,6 +187,7 @@ def show_plan(profile, clname):
     else:
         print("Bilbo will create Dask cluster with following options:")
         pobj = DaskProfile(pcfg)
+    pobj.validate()
 
     has_instance = False
     if pobj.nb_inst is not None:
