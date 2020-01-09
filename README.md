@@ -94,7 +94,7 @@ bilbo 를 최초로 실행하면 설치된 OS의 유저 홈 디렉토리 아래�
 
 AWS EC2 인스턴스를 만들고 관리하기 위해 아래의 준비가 필요하다.
 * EC2 용 키페어(Key Pair)
-* AWS CLI(Command Line in)
+* AWS CLI(Command Line Interface)
 
 키페어는 한 번이라도 EC2 인스턴스를 만들었다면 준비되어 있을 것이다. 아니라면 [관련 글](https://victorydntmd.tistory.com/61)을 참고하여 준비하자.
 
