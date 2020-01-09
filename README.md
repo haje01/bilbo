@@ -411,6 +411,8 @@ AWS EC2 대쉬보드에서도 생성된 노트북 인스턴스를 볼 수 있다
 
 ![노트북](/assets/2020-01-08-15-58-31.png)
 
+> 만약 별도의 웹브라우저를 사용하고 싶다면, 프로파일에 `"webbrowser" : "C:\\Program Files (x86)\\Google\\Chrome\\Applications\\chrome.exe"` 식으로 경로를 명시하면 된다.
+
 
 ### 클러스터 제거하기
 

@@ -193,8 +193,17 @@ def create_notebook(clname, pobj, ec2, clinfo):
     clinfo['notebook'] = ninfo
 
 
+def check_dup_cluster(clname):
+    """클러스터 이름이 겹치는지 검사."""
+    path = os.path.join(clust_dir, clname + '.json')
+    if os.path.isfile(path):
+        raise NameError("Cluster '{}' already exist.".format(clname))
+
+
 def create_cluster(profile, clname):
     """클러스터 생성."""
+    check_dup_cluster(clname)
+
     pcfg = read_profile(profile)
     if clname is None:
         clname = profile.lower().split('.')[0]
@@ -530,11 +539,12 @@ def stop_cluster(clname):
 def open_url(url, cldata):
     """지정된 또는 기본 브라우저로 URL 열기."""
     info("open_url")
-    wb = webbrowser    
+    wb = webbrowser
     if 'webbrowser' in cldata:
         path = cldata['webbrowser']
         info("  Using explicit web browser: {}".format(path))
-        webbrowser.register('explicit', None, webbrowser.BackgroundBrowser(path))
+        webbrowser.register('explicit', None,
+                            webbrowser.BackgroundBrowser(path))
         wb = webbrowser.get('explicit')
     wb.open(url)
 
@@ -564,6 +574,3 @@ def open_notebook(clname):
         open_url(url, clinfo)
     else:
         raise Exception("No notebook instance.")
-
-
-# send_instance_cmd('ubuntu', 'L:\\wzdat-seoul.pem', '52.79.242.143', 'touch /tmp/foo', show_error=True, retry_count=10)
