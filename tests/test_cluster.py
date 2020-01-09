@@ -9,7 +9,7 @@ from bilbo.cluster import create_cluster, destroy_cluster, start_cluster, \
 
 warnings.filterwarnings("ignore")
 
-PRO_NAME = '_test_.json'
+PRO_NAME = '_bilbotest_.json'
 
 @pytest.fixture(scope="function")
 def cluster():
@@ -117,7 +117,7 @@ def test_dask(cluster):
     assert 'worker' in clinfo
     winfo = clinfo['worker']
     assert winfo['nthread'] == 2
-    assert winfo['nproc'] == winfo['cpu_options']['CoreCount']
+    assert winfo['nproc'] == winfo['cpu_info']['CoreCount']
     wins = winfo['instances']
     assert len(wins) == 2
     wins = winfo['instances']

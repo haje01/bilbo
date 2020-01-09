@@ -64,8 +64,9 @@ def get_type_instance_info(pobj, only_inst=None):
     info['key_name'] = pobj.keyname
     info['ssh_user'] = pobj.ssh_user
     info['ssh_private_key'] = pobj.ssh_private_key
+    info['ec2type'] = pobj.ec2type
+
     if only_inst is not None:
-        info['ec2type'] = only_inst.instance_type
         info['instance_id'] = only_inst.instance_id
         info['public_ip'] = only_inst.public_ip_address
         info['private_dns_name'] = only_inst.private_dns_name
@@ -105,9 +106,9 @@ def create_dask_cluster(clname, pobj, ec2, clinfo):
     inst = pobj.wrk_inst
     winfo = get_type_instance_info(inst)
     winfo['count'] = pobj.wrk_cnt
+    # 프로파일에서 지정된 thread/proc 수
     winfo['nthread'] = pobj.wrk_nthread
     winfo['nproc'] = pobj.wrk_nproc
-    winfo['cpu_options'] = ins[0].cpu_options
     winfo['instances'] = []
     clinfo['worker'] = winfo
     for wrk in ins:
@@ -130,6 +131,28 @@ def create_dask_cluster(clname, pobj, ec2, clinfo):
         wi['public_ip'] = wrk.public_ip_address
         wi['private_dns_name'] = wrk.private_dns_name
         winfo['instances'].append(wi)
+
+    # ec2 생성 후 반환값의 `ncpu_options` 가 잘못오고 있어 여기서 요청.
+    if len(ins) > 0:
+        winfo['cpu_info'] = get_cpu_info(pobj, ins[0])
+
+
+def get_cpu_info(pobj, ins):
+    """생성된 인스턴스에서 lscpu 명령으로 CPU 정보 얻기."""
+    info("get_cpu_info")
+    public_ip = ins.public_ip_address
+    user = pobj.wrk_inst.ssh_user
+    private_key = pobj.wrk_inst.ssh_private_key
+    # Cores
+    cmd = "lscpu | grep -e ^CPU\(s\): | awk '{print $2}'"
+    res, _ = send_instance_cmd(user, private_key, public_ip, cmd)
+    num_core = int(res[0])
+    # Threads per core
+    cmd = "lscpu | grep Thread | awk '{print $4}'"
+    res, _ = send_instance_cmd(user, private_key, public_ip, cmd)
+    threads_per_core = int(res[0])
+    cpu_info = {'CoreCount': num_core, 'ThreadsPerCore': threads_per_core}
+    return cpu_info
 
 
 def save_cluster_info(clname, clinfo):
@@ -388,7 +411,7 @@ def find_cluster_instance_by_public_ip(cluster, public_ip):
         scd = clinfo['scheduler']
         if scd['public_ip'] == public_ip:
             return scd
-        winfo = clinfo['workers']
+        winfo = clinfo['worker']
         for wrk in winfo['instances']:
             if wrk['public_ip'] == public_ip:
                 return wrk
@@ -398,7 +421,7 @@ def find_cluster_instance_by_public_ip(cluster, public_ip):
 
 def dask_worker_options(winfo, memory):
     """Dask 클러스터 워커 인스턴스 정보에서 워커 옵션 구하기."""
-    co = winfo['cpu_options']
+    co = winfo['cpu_info']
     nproc = winfo['nproc'] or co['CoreCount']
     nthread = winfo['nthread'] or co['ThreadsPerCore']
     return nproc, nthread, memory // nproc
