@@ -103,6 +103,10 @@
             "description": "Common instance configuration",
             "$ref": "#/definitions/instanceType"
         },
+        "webbrowser": {
+            "type": "string",
+            "description": "Web browser application path to open URL."
+        },
         "notebook": {
             "description": "Notebook configuration",
             "properties": {

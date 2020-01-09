@@ -209,6 +209,8 @@ def create_cluster(profile, clname):
         pobj = Profile(pcfg)
 
     pobj.validate()
+    if 'webbrowser' in pcfg:
+        clinfo['webbrowser'] = pcfg['webbrowser']
 
     # 노트북 생성
     if 'notebook' in pcfg:
@@ -342,7 +344,7 @@ def send_instance_cmd(ssh_user, ssh_private_key, public_ip, cmd,
     for i in range(retry_count):
         try:
             client.connect(hostname=public_ip, username=ssh_user, pkey=key)
-        except paramiko.ssh_exception.NoValidConnectionsError:
+        except (paramiko.ssh_exception.NoValidConnectionsError, TimeoutError):
             warning("Connection failed to '{}'. Retry after a while.".
                     format(public_ip))
             time.sleep(5)
@@ -371,13 +373,13 @@ def find_cluster_instance_by_public_ip(cluster, public_ip):
 
     with open(clpath, 'rt') as f:
         body = f.read()
-        data = json.loads(body)
+        clinfo = json.loads(body)
 
-    if data['type'] == 'dask':
-        scd = data['scheduler']
+    if clinfo['type'] == 'dask':
+        scd = clinfo['scheduler']
         if scd['public_ip'] == public_ip:
             return scd
-        winfo = data['workers']
+        winfo = clinfo['workers']
         for wrk in winfo['instances']:
             if wrk['public_ip'] == public_ip:
                 return wrk
@@ -502,18 +504,18 @@ def stop_cluster(clname):
 
     with open(clpath, 'rt') as f:
         body = f.read()
-        data = json.loads(body)
+        clinfo = json.loads(body)
 
-    if data['type'] == 'dask':
+    if clinfo['type'] == 'dask':
         critical("Stop dask scheduler & workers.")
         # 스케쥴러 중지
-        scd = data['scheduler']
+        scd = clinfo['scheduler']
         user, private_key = scd['ssh_user'], scd['ssh_private_key']
         public_ip = scd['public_ip']
         cmd = "screen -X -S 'bilbo' quit"
         send_instance_cmd(user, private_key, public_ip, cmd)
 
-        for wrk in data['worker']:
+        for wrk in clinfo['worker']:
             # 워커 중지
             user, private_key = wrk['ssh_user'], wrk['ssh_private_key']
             public_ip = wrk['public_ip']
@@ -522,19 +524,32 @@ def stop_cluster(clname):
     else:
         raise NotImplementedError()
 
-    return data
+    return clinfo
+
+
+def open_url(url, cldata):
+    """지정된 또는 기본 브라우저로 URL 열기."""
+    info("open_url")
+    wb = webbrowser    
+    if 'webbrowser' in cldata:
+        path = cldata['webbrowser']
+        info("  Using explicit web browser: {}".format(path))
+        webbrowser.register('explicit', None, webbrowser.BackgroundBrowser(path))
+        wb = webbrowser.get('explicit')
+    wb.open(url)
 
 
 def open_dashboard(clname):
     """클러스터의 대쉬보드 열기."""
     check_cluster(clname)
-    data = load_cluster_info(clname)
+    clinfo = load_cluster_info(clname)
 
-    if data['type'] == 'dask':
-        scd = data['scheduler']
+    if clinfo['type'] == 'dask':
+        scd = clinfo['scheduler']
         public_ip = scd['public_ip']
         url = "http://{}:8787".format(public_ip)
-        webbrowser.open(url)
+
+        open_url(url, clinfo)
     else:
         raise NotImplementedError()
 
@@ -542,10 +557,13 @@ def open_dashboard(clname):
 def open_notebook(clname):
     """노트북 열기."""
     check_cluster(clname)
-    data = load_cluster_info(clname)
+    clinfo = load_cluster_info(clname)
 
-    if 'notebook_url' in data:
-        url = data['notebook_url']
-        webbrowser.open(url)
+    if 'notebook_url' in clinfo:
+        url = clinfo['notebook_url']
+        open_url(url, clinfo)
     else:
         raise Exception("No notebook instance.")
+
+
+# send_instance_cmd('ubuntu', 'L:\\wzdat-seoul.pem', '52.79.242.143', 'touch /tmp/foo', show_error=True, retry_count=10)

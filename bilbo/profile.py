@@ -117,6 +117,11 @@ class Profile:
         if 'instance' in pcfg:
             self.inst = Instance(pcfg['instance'])
 
+        # 기타 정보
+        self.webbrowser = None
+        if 'webbrowser' in pcfg:
+            self.webbrowser = pcfg['webbrowser']
+
         # 노트북 정보
         self.nb_inst = None
         ncfg = pcfg.get('notebook')
