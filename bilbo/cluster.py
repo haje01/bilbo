@@ -204,9 +204,11 @@ def create_cluster(profile, clname):
     clinfo = {'name': clname, 'instances': []}
     if 'dask' in pcfg:
         pobj = DaskProfile(pcfg)
+        pobj.validate()
         create_dask_cluster(clname, pobj, ec2, clinfo)
     else:
         pobj = Profile(pcfg)
+        pobj.validate()
 
     # 노트북 생성
     if 'notebook' in pcfg:

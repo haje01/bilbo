@@ -1,4 +1,5 @@
 """프로파일 테스트."""
+import  pytest
 
 from bilbo.profile import Profile, DaskProfile
 
@@ -140,3 +141,49 @@ def test3():
     assert pro.nb_inst is not None
     assert pro.nb_inst.ami == 'ami-000'
     assert pro.nb_inst.ec2type == "m5.xlarge"
+
+
+def test_validate():
+    """프로파일 유효성 테스트."""
+    cfg = {
+        "instance": {
+            'ami': 'ami-000',
+            "ec2type": "base-ec2type",
+            "security_group": "sg-000",
+            "keyname": "base-key",
+            "tags": [
+                ["Owner", "BaseOwner"],
+                ["Service", "BaseService"]
+            ]
+        },
+        "notebook": {
+            "instance": {
+                "ec2type": "m5.xlarge"
+            }
+        }
+    }
+    pro = Profile(cfg)
+    with pytest.raises(ValueError, match=r".*ssh.*"):
+        pro.validate()
+
+    cfg = {
+        "instance": {
+            'ami': 'ami-000',
+            "ec2type": "base-ec2type",
+            "security_group": "sg-000",
+            "keyname": "base-key",
+            "tags": [
+                ["Owner", "BaseOwner"],
+                ["Service", "BaseService"]
+            ]
+        },
+        "dask": {
+            "worker": {
+                "count": 2
+            }
+        }
+    }
+    pro = DaskProfile(cfg)
+    with pytest.raises(ValueError, match=r".*ssh.*"):
+        pro.validate()
+

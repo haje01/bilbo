@@ -48,7 +48,7 @@ def check_profile(proname):
     return path
 
 
-def validate(pcfg):
+def validate_by_schema(pcfg):
     """프로파일을 스키마로 점검."""
     schema = get_latest_schema()
     jsonschema.validate(pcfg, schema)
@@ -62,7 +62,7 @@ def read_profile(profile):
         body = f.read()
         pcfg = json.loads(body)
 
-    validate(pcfg)
+    validate_by_schema(pcfg)
     return pcfg
 
 
@@ -90,13 +90,28 @@ class Instance:
                                         self.ssh_private_key)
         self.tags = icfg.get('tags', self.tags)
 
+    def validate(self):
+        """인스턴스 유효성 점검."""
+        if self.ami is None:
+            raise ValueError("No 'ami' value.")
+        if self.ec2type is None:
+            raise ValueError("No 'ec2type' value.")
+        if self.keyname is None:
+            raise ValueError("No 'keyname' value.")
+        if self.secgroup is None:
+            raise ValueError("No 'secrurity_group' value.")
+        if self.ssh_user is None:
+            raise ValueError("No 'ssh_user' value.")
+        if self.ssh_private_key is None:
+            raise ValueError("No 'ssh_private_key' value.")
+
 
 class Profile:
     """프로파일 기본 객체."""
 
     def __init__(self, pcfg):
         """초기화 및 검증."""
-        validate(pcfg)
+        validate_by_schema(pcfg)
         # 공통 노드 정보
         self.inst = None
         if 'instance' in pcfg:
@@ -114,6 +129,11 @@ class Profile:
         self.clcfg = pcfg.get('dask')
         if self.clcfg is not None:
             self.type = self.clcfg.get('type')
+
+    def validate(self):
+        """프로파일 유효성 점검."""
+        if self.nb_inst is not None:
+            self.nb_inst.validate()
 
 
 class DaskProfile(Profile):
@@ -146,6 +166,14 @@ class DaskProfile(Profile):
             self.wrk_cnt = wcfg.get('count', self.wrk_cnt)
             self.wrk_nthread = wcfg.get('nthread')
             self.wrk_nproc = wcfg.get('nproc')
+
+    def validate(self):
+        """프로파일 유효성 점검."""
+        super(DaskProfile, self).validate()
+        if self.scd_inst is not None:
+            self.scd_inst.validate()
+        if self.wrk_inst is not None:
+            self.wrk_inst.validate()
 
 
 def show_plan(profile, clname):
