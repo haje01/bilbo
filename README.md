@@ -93,12 +93,16 @@ bilbo 를 최초로 실행하면 설치된 OS의 유저 홈 디렉토리 아래�
 ### AWS 환경 준비
 
 AWS EC2 인스턴스를 만들고 관리하기 위해 아래의 준비가 필요하다.
+
 * EC2 용 키페어(Key Pair)
+* AWS IAM 유저
 * AWS CLI(Command Line Interface)
 
 키페어는 한 번이라도 EC2 인스턴스를 만들었다면 준비되어 있을 것이다. 아니라면 [관련 글](https://victorydntmd.tistory.com/61)을 참고하여 준비하자.
 
-AWS CLI도 설치되어 있지 않다면, [이 글](https://www.44bits.io/ko/post/publishing_and_managing_aws_user_access_key) 을 참고하여 IAM 사용자를 만들고, [이 글](https://www.44bits.io/ko/post/aws_command_line_interface_basic)을 참고하여 AWS CLI를 설치하자.
+사용 가능한 IAM 유저가 없다면, [이 글](https://www.44bits.io/ko/post/publishing_and_managing_aws_user_access_key) 을 참고하여 만들자. 이 과정에서 얻은 Access Key 와 Secret Key 는, 아래의 AMI 이미지 생성 과정을 위해 환경 변수로 노출해두자.
+
+AWS CLI도 설치되어 있지 않다면, [이 글](https://www.44bits.io/ko/post/aws_command_line_interface_basic)을 참고하여 AWS CLI를 설치하자.
 
 
 ### AMI (Amazon Machine Image) 만들기
