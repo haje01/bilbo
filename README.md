@@ -36,11 +36,11 @@ bilbo 는 Linux, macOS, Windows 에서 사용 가능하며, Python 3.6 이상 �
 
 ### bilbo 설치
 
-아래와 같이 코드를 설치하고
+아래와 같이 코드를 클론하고,
 
     $ git clone https://github.com/haje01/bilbo.git
 
-클론한 디렉토리로 이동 후 `pip` 로 설치한다.
+클론된 디렉토리로 이동 후 `pip` 로 설치한다.
 
     $ pip install -e .
 
