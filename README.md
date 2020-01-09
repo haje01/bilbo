@@ -96,14 +96,19 @@ AWS EC2 인스턴스를 만들고 관리하기 위해 아래의 준비가 필요
 
 * EC2 용 키페어(Key Pair)
 * AWS IAM 유저
-* AWS CLI(Command Line Interface)
+* AWS 환경변수 설정
 
 키페어는 한 번이라도 EC2 인스턴스를 만들었다면 준비되어 있을 것이다. 아니라면 [관련 글](https://victorydntmd.tistory.com/61)을 참고하여 준비하자.
 
-사용 가능한 IAM 유저가 없다면, [이 글](https://www.44bits.io/ko/post/publishing_and_managing_aws_user_access_key) 을 참고하여 만들자. 이 과정에서 얻은 Access Key 와 Secret Key 는, 아래의 AMI 이미지 생성 과정을 위해 환경 변수로 노출해두자.
+사용 가능한 IAM 유저가 없다면, [이 글](https://www.44bits.io/ko/post/publishing_and_managing_aws_user_access_key) 을 참고하여 만들자. 이 과정에서 얻은 Access / Secret 키를 기록해두자.
 
-AWS CLI도 설치되어 있지 않다면, [이 글](https://www.44bits.io/ko/post/aws_command_line_interface_basic)을 참고하여 AWS CLI를 설치하자.
+환경변수는 다음과 같은 세 가지를 사용한다:
 
+* `AWS_ACCESS_KEY_ID` - IAM 유저의 Access 키
+* `AWS_SECRET_ACCESS_KEY` - IAM 유저의 Secret 키
+* `AWS_DEFAULT_REGION` - 기본 AWS 리전 (한국은 `ap-northeast-2`)
+
+위의 환경변수가 명령창(터미널)을 띄울 때마다 활성화되도록 사용하는 OS에 맞게 설정해 두자.
 
 ### AMI (Amazon Machine Image) 만들기
 
@@ -158,7 +163,7 @@ Packer의 설정파일은 `.json` 형식으로 기술한다. 적당한 이미지
 }
 ```
 
-* AWS의 접속 및 비밀 키는 각각 환경 변수 `AWS_ACCESS_KEY_ID`와 `AWS_SECRET_ACCESS_KEY`에 저장되어 있다고 가정한다.
+* 앞에서 언급한 환경변수 `AWS_ACCESS_KEY_ID`와 `AWS_SECRET_ACCESS_KEY`에 설정되어 있어야 한다.
 * `instance-type` 은 이미지를 만들기 위한 VM의 타입이기에 `t2.micro`로 충분하다.
 * `provisioners` 아래에 설치 스크립트가 온다.
 * 첫 번째 쉘 스크립트에 `sleep 60`은 OS의 초기 작업이 끝나기를 기다리기 위한 것이다.
@@ -323,7 +328,7 @@ bilbo 는 분석을 위한 1) 노트북이 사용자의 로컬 머신에 있을 
         "ec2type": "t3.micro",
         "keyname": "my-keypair",
         "ssh_user": "ubuntu",
-        "ssh_private_key": "~/.ssh/my-keypair.pem",
+        "ssh_private_key": "~/.ssh/my-keypair.pem"
     },
     "notebook": {}
 }

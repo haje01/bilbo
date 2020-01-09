@@ -225,11 +225,12 @@ def check_dup_cluster(clname):
 
 def create_cluster(profile, clname):
     """클러스터 생성."""
+    if clname is None:
+        clname = profile.lower().split('.')[0]
+
     check_dup_cluster(clname)
 
     pcfg = read_profile(profile)
-    if clname is None:
-        clname = profile.lower().split('.')[0]
     ec2 = boto3.resource('ec2')
 
     # 클러스터 생성
