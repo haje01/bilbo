@@ -301,7 +301,7 @@ bilbo 의 프로파일은 `.json` 형식으로 기술하는데, 이를 위한 [J
   * `ami` - 만들어 둔 AMI 의 ID
   * `security_group` - 만들어 둔 보안 그룹의 ID
   * `ec2type` - 사용할 EC2 인스턴스의 타입
-  * `keyname` - 사용할 AWS Key Pair의 이름
+  * `keyname` - 사용할 AWS 키페어의 이름
   * `ssh_user` - 인스턴스 생성 후 SSH 로그인할 유저 (우분투는 `ubuntu`, Amazon Linux 면 `ec2-user`)
   * `ssh_private_key` - 키페어의 프라이빗키 경로
 
@@ -627,4 +627,4 @@ Dask 대쉬보드에서 확인해보면,
     }
 ```
 
-위의 경우, 스레드를 4개 가진 워커 프로세스 하나가 인스턴스의 메모리를 다 사용하게 된다.
+위의 경우, 스레드를 4개를 가진 워커 프로세스 하나가 인스턴스의 메모리를 다 사용하게 된다.
