@@ -114,7 +114,7 @@ AWS EC2 인스턴스를 만들고 관리하기 위해 아래의 준비가 필요
 
 데이터 과학에 필요한 여러 패키지를 설치한 AMI를 미리 만들어 두면, 필요할 때 바로 VM 인스턴스를 띄워서 쓸 수 있다. AMI는 인스턴스를 만들어서 직접 설치 후 AWS EC2 대쉬보드의 `이미지 생성` 명령을 통해 만들 수도 있으나, **형상 관리가 힘든 문제**점이 있다.
 
-*재현 가능한 데이터 과학* 을 위해서는 이미지 명세를 텍스트로 작성하고, 이것을 git 등으로 관리하는 것이 좋은데, 이를 위해 HashiCorp의 [Packer](https://www.packer.io)를 사용하는 것을 추천한다. 먼저 [Packer Install](https://www.packer.io/intro/getting-started/install.html) 을 참고하여 Packer 를 설치하자.
+*재현 가능한 데이터 과학* 을 위해서는 이미지 명세를 텍스트로 작성하고, 이것을 git 등으로 관리하는 것이 좋은데, 이를 위해 HashiCorp의 [Packer](https://www.packer.io) 를 사용하는 것을 추천한다. 먼저 [Packer Install](https://www.packer.io/intro/getting-started/install.html) 을 참고하여 Packer 를 설치하자.
 
 설명에서는 기계학습을 위한 이미지를 가정해, AWS에서 제공하는 `Deep Learning AMI (Ubuntu 16.04) Version 26.0` 을 소스 AMI로 하겠다 (CUDA 등이 미리 설치되어있어 향후 GPU 인스턴스를 사용할 때 편리하다). bilbo 를 위해 필수로 설치해야 하는 것들은 다음과 같다.
 
