@@ -226,7 +226,7 @@ def check_dup_cluster(clname):
 def create_cluster(profile, clname):
     """클러스터 생성."""
     if clname is None:
-        clname = profile.lower().split('.')[0]
+        clname = '.'.join(profile.lower().split('.')[0:-1])
 
     check_dup_cluster(clname)
 
@@ -255,7 +255,7 @@ def create_cluster(profile, clname):
 def show_all_cluster():
     """모든 클러스터를 표시."""
     for cl in iter_clusters():
-        name = cl.split('.')[0]
+        name = '.'.join(cl.split('.')[0:-1])
         print("{}".format(name))
 
 
@@ -266,7 +266,7 @@ def check_cluster(clname):
         clname (str): 클러스터명 (.json 확장자 제외)
     """
     if clname.lower().endswith('.json'):
-        rname = clname.split('.')[0]
+        rname = '.'.join(clname.split('.')[0:-1])
         msg = "Wrong cluster name '{}'. Use '{}' instead.". \
               format(clname, rname)
         raise NameError(msg)

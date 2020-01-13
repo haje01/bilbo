@@ -164,6 +164,7 @@ class DaskProfile(Profile):
         self.wrk_inst = copy(self.inst)
         wcfg = self.clcfg.get('worker')
         self.wrk_cnt = DEFAULT_WORKER
+        self.wrk_nthread = self.wrk_nproc = None
         if wcfg is not None:
             wicfg = wcfg.get('instance')
             if wicfg is not None:
@@ -185,7 +186,8 @@ def show_plan(profile, clname):
     """실행 계획 표시"""
     pcfg = read_profile(profile)
     if clname is None:
-        clname = profile.lower().split('.')[0]
+        clname = '.'.join(profile.lower().split('.')[0:-1])
+    print("\nCluster name: {}\n".format(clname))
 
     if 'dask' not in pcfg:
         pobj = Profile(pcfg)
@@ -202,7 +204,7 @@ def show_plan(profile, clname):
         has_instance = True
         print("")
 
-    if hasattr(pobj, 'dask'):
+    if 'dask' in pcfg:
         show_dask_plan(clname, pobj)
         has_instance = True
 
