@@ -89,6 +89,7 @@ bilbo 를 최초로 실행하면 설치된 OS의 유저 홈 디렉토리 아래�
         logs/      # 로그 디렉토리
         profiles/  # 프로파일 디렉토리
 
+> 주의 : 빌보 홈 디렉토리에는 설정 내용에 따라 민감한 내용이 들어갈 수 있으니 유출되지 않도록 조심하자!
 
 ### AWS 환경 준비
 
@@ -119,7 +120,7 @@ AWS EC2 인스턴스를 만들고 관리하기 위해 아래의 준비가 필요
 설명에서는 기계학습을 위한 이미지를 가정해, AWS에서 제공하는 `Deep Learning AMI (Ubuntu 16.04) Version 26.0` 을 소스 AMI로 하겠다 (CUDA 등이 미리 설치되어있어 향후 GPU 인스턴스를 사용할 때 편리하다). bilbo 를 위해 필수로 설치해야 하는 것들은 다음과 같다.
 
 * 클러스터 - Dask 관련 패키지
-* 노트북 - Jupyter Lab을 기준으로 한다.
+* 트북 - Jupyter Lab을 기준으로 한다.
 * 기타 Python 데이터 과학 패키지
 
 노트북/스케쥴러/워커 등 인스턴스 역할별로 AMI 를 따로 만들어 사용할 수 도 있으나, 유지보수의 편의상 모두 하나의 AMI 에 설치하겠다.
@@ -578,6 +579,26 @@ Dask 클라이언트를 인자 없이 생성한다.
 ![주소 없이 Dask 클라이언트 사용](assets/2020-01-09-10-36-48.png)
 
 ### 활용 팁
+
+#### Git 저장소에서 코드 받기
+
+클러스터 생성 후 노트북 인스턴스에 GitHub 등에 있는 자신의 코드를 받아오도록(Clone) 설정할 수 있다.
+
+```json
+    "notebook": {
+        "git": {
+            "repository": "GIT-REPOSITORY-URL",
+            "user": "GIT-USER-ID",
+            "email": "GIT-USER_EMAIL",
+            "password": "GIT-USER-PASSWORD"
+        }
+    }
+```
+
+* `repository`는 `https://github.com/haje01/bilbo.git` 처럼 `https`로 시작해야 한다.
+* 오픈소스 프로젝트의 저장소라면 `user`, `email`, `password` 등의 정보가 클려도 클론은 되지만, 커밋은 불가하다.
+* **설정에 `password`가 들어가기에 누출되지 않도록 조심하자!**
+
 
 #### 클러스터 재시작
 

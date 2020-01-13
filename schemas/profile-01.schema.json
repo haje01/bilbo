@@ -4,7 +4,7 @@
     "description": "Bilbo schema for cluster",
     "definitions": {
         "instanceType": {
-            "description": "Instance type config",
+            "description": "Instance type configuration",
             "additionalProperties": false,
             "properties": {
                 "ami": {
@@ -49,8 +49,33 @@
                 }
             }
         },
+        "gitType": {
+            "description": "Git configuration",
+            "additionalProperties": false,
+            "properties": {
+                "repository": {
+                    "description": "Git repository URL",
+                    "type": "string",
+                    "format": "uri",
+                    "pattern": "^https://.+"
+                },
+                "user": {
+                    "description": "Git user ID",
+                    "type": "string"
+                },
+                "email": {
+                    "description": "Git user email",
+                    "type": "string",
+                    "format": "email"
+                },
+                "password": {
+                    "description": "Git user password",
+                    "type": "string"
+                }
+            }
+        },
         "daskType": {
-            "description": "Dask cluster config",
+            "description": "Dask cluster configuration",
             "additionalProperties": false,
             "properties": {
                 "scheduler": {
@@ -89,7 +114,7 @@
             }
         },
         "rayType": {
-            "description": "Ray cluster config",
+            "description": "Ray cluster configration",
             "additionalProperties": false
         }
     },
@@ -109,10 +134,19 @@
         },
         "notebook": {
             "description": "Notebook configuration",
+            "additionalProperties": false,
             "properties": {
                 "instance": {
                     "description": "Scheduler instance configuration",
                     "$ref": "#/definitions/instanceType"
+                },
+                "workdir": {
+                    "description": "Working directory",
+                    "type": "string"
+                },
+                "git": {
+                    "description": "Git configuration",
+                    "$ref": "#/definitions/gitType"
                 }
             }
         },

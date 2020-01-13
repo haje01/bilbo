@@ -19,6 +19,9 @@ from bilbo.util import critical, warning, error, clust_dir, iter_clusters, info
 warnings.filterwarnings("ignore")
 
 
+NB_WORKDIR = "~/works"
+
+
 def cluster_info_exists(clname):
     """클러스터 정보가 존재하는가?"""
     path = os.path.join(clust_dir, clname + '.json')
@@ -249,7 +252,7 @@ def create_cluster(profile, clname):
     if 'notebook' in pcfg:
         create_notebook(clname, pobj, ec2, clinfo)
 
-    return clinfo
+    return pobj, clinfo
 
 
 def show_all_cluster():
@@ -428,10 +431,10 @@ def dask_worker_options(winfo, memory):
     return nproc, nthread, memory // nproc
 
 
-def start_cluster(clinfo):
+def start_cluster(pobj, clinfo):
     """클러스터 노트북, 마스터 & 워커를 시작."""
     if 'notebook' in clinfo:
-        start_notebook(clinfo)
+        start_notebook(pobj, clinfo)
 
     if 'type' in clinfo:
         if clinfo['type'] == 'dask':
@@ -440,7 +443,16 @@ def start_cluster(clinfo):
             raise NotImplementedError()
 
 
-def start_notebook(clinfo, retry_count=10):
+def git_clone_cmd(gobj, workdir):
+    warning("git clone: {}".format(gobj.repository))
+    repo = gobj.repository
+    protocol, address = repo.split('://')
+    url = "{}://{}:{}@{}".format(protocol, gobj.user, gobj.password, address)
+    cmd = "cd {} && git clone {}".format(workdir, url)
+    return cmd
+
+
+def start_notebook(pobj, clinfo, retry_count=10):
     """노트북 시작.
 
     Args:
@@ -455,6 +467,18 @@ def start_notebook(clinfo, retry_count=10):
     ncfg = clinfo['notebook']
     user, private_key = ncfg['ssh_user'], ncfg['ssh_private_key']
     public_ip = ncfg['public_ip']
+
+    # 작업 폴더
+    nb_workdir = pobj.nb_workdir or NB_WORKDIR
+    cmd = "mkdir {}".format(nb_workdir)
+    send_instance_cmd(user, private_key, public_ip, cmd)
+
+    # git 클론
+    if pobj.nb_git is not None:
+        cmd = git_clone_cmd(pobj.nb_git, nb_workdir)
+        send_instance_cmd(user, private_key, public_ip, cmd)
+        gcdir = pobj.nb_git.repository.split('/')[-1].replace('.git', '')
+        clinfo['git_cloned_dir'] = os.path.join(nb_workdir, gcdir)
 
     # 클러스터 타입별 노트북 옵션
     vars = ''

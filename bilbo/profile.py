@@ -106,8 +106,21 @@ class Instance:
             raise ValueError("No 'ssh_private_key' value.")
 
 
+class Git:
+    """Git 설정 객체."""
+
+    def __init__(self, gcfg):
+        self.repository = gcfg['repository']
+        self.user = gcfg['user']
+        self.email = gcfg['email']
+        self.password = gcfg['password']
+
+
 class Profile:
-    """프로파일 기본 객체."""
+    """프로파일 기본 객체.
+
+    병합된 설정을 가짐.
+    """
 
     def __init__(self, pcfg):
         """초기화 및 검증."""
@@ -123,13 +136,20 @@ class Profile:
             self.webbrowser = pcfg['webbrowser']
 
         # 노트북 정보
-        self.nb_inst = None
+        self.nb_inst = self.nb_workdir = self.nb_git = None
         ncfg = pcfg.get('notebook')
         if ncfg is not None:
             self.nb_inst = copy(self.inst)
             nicfg = ncfg.get('instance')
             if nicfg is not None:
                 self.nb_inst.overwrite(nicfg)
+
+            if 'workdir' in ncfg:
+                self.nb_workdir = ncfg['workdir']
+
+            gcfg = ncfg.get('git')
+            if gcfg is not None:
+                self.nb_git = Git(gcfg)
 
         self.clcfg = pcfg.get('dask')
         if self.clcfg is not None:

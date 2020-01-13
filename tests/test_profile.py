@@ -4,7 +4,7 @@ import  pytest
 from bilbo.profile import Profile, DaskProfile
 
 
-def test1():
+def test_dask_basic():
     cfg = {
         "instance": {
             'ami': 'ami-000',
@@ -45,7 +45,7 @@ def test1():
     assert pro.wrk_cnt == 1
 
 
-def test2():
+def test_dask_complex():
     cfg = {
         "instance": {
             'ami': 'ami-000',
@@ -117,7 +117,7 @@ def test2():
     assert pro.wrk_inst.tags[0][1] == "WrkOwner"
 
 
-def test3():
+def test_notebook():
     cfg = {
         "instance": {
             'ami': 'ami-000',
@@ -134,6 +134,13 @@ def test3():
         "notebook": {
             "instance": {
                 "ec2type": "m5.xlarge"
+            },
+            "workdir": "~/works",
+            "git": {
+                "repository": "https://github.com/haje01/bilbo.git",
+                "user": "haje01",
+                "password": "password",
+                "email": "haje01@gmail.com"
             }
         }
     }
@@ -141,6 +148,10 @@ def test3():
     assert pro.nb_inst is not None
     assert pro.nb_inst.ami == 'ami-000'
     assert pro.nb_inst.ec2type == "m5.xlarge"
+    assert pro.nb_workdir == '~/works'
+    assert pro.nb_git is not None
+    assert pro.nb_git.user == 'haje01'
+    assert pro.nb_git.password == 'password'
 
 
 def test_validate():
