@@ -109,7 +109,7 @@ AWS EC2 인스턴스를 만들고 관리하기 위해 아래의 준비가 필요
 * `AWS_SECRET_ACCESS_KEY` - IAM 유저의 Secret 키
 * `AWS_DEFAULT_REGION` - 기본 AWS 리전 (한국은 `ap-northeast-2`)
 
-위의 환경변수가 명령창(터미널)을 띄울 때마다 활성화되도록 사용하는 OS에 맞게 설정해 두자. (AWS CLI 툴을 설치해둔 경우면 별도 환경변수 설정없이 사용가능)
+위의 환경변수가 명령창(터미널)을 띄울 때마다 활성화되도록 로컬 OS에 맞게 설정해 두자. (AWS CLI 툴을 설치해둔 경우면 별도 환경변수 설정없이 사용 가능)
 
 ### AMI (Amazon Machine Image) 만들기
 

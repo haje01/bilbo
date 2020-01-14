@@ -126,3 +126,16 @@ def iter_clusters():
     for cl in os.listdir(clust_dir):
         if cl.endswith('.json'):
             yield cl
+
+
+def check_aws_envvars():
+    """AWS 관련 환경변수를 체크."""
+
+    def _check(ev):
+        if ev not in os.environ:
+            raise RuntimeError("Environment variable not found: '{}'".
+                               format(ev))
+
+    _check('AWS_ACCESS_KEY_ID')
+    _check('AWS_SECRET_ACCESS_KEY')
+    _check('AWS_DEFAULT_REGION')
