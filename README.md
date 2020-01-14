@@ -182,17 +182,17 @@ sudo apt-get install -y graphviz git nodejs
 pip install blosc
 pip install lz4
 pip install python-snappy
-pip install dask==2.9.0
-pip install numpy==1.17.3
-pip install pandas==0.25.
+pip install 'dask>=2.9.0'
+pip install 'numpy>=1.17.3'
+pip install 'pandas>=0.25.'
 pip install jupyter
 pip install jupyterlab
 jupyter labextension install @jupyterlab/toc
-pip install dask-labextension==1.0.3
+pip install 'dask-labextension>=1.0.3'
 pip install graphviz
 pip install pyarrow
-pip install fsspec>=0.3.3
-pip install s3fs>=0.4.0
+pip install 's3fs>=0.4.0'
+pip install 'fsspec>=0.6.2'
 ```
 
 추가적으로 필요한 패키지도 등록할 수 있겠다.

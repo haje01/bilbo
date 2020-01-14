@@ -20,13 +20,7 @@ from bilbo.util import critical, warning, error, clust_dir, iter_clusters, \
 
 warnings.filterwarnings("ignore")
 
-
 NB_WORKDIR = "~/works"
-COPY_ENVVARS = [
-    'AWS_ACCESS_KEY_ID',
-    'AWS_SECRET_ACCESS_KEY',
-    'AWS_DEFAULT_REGION'
-]
 
 
 def cluster_info_exists(clname):
@@ -362,7 +356,7 @@ def destroy_cluster(clname):
 
 
 def send_instance_cmd(ssh_user, ssh_private_key, public_ip, cmd,
-                      show_error=True, retry_count=10, invoke_shell=False):
+                      show_error=True, retry_count=10):
     """인스턴스에 SSH 명령어 실행
 
     https://stackoverflow.com/questions/42645196/how-to-ssh-and-run-commands-in-ec2-using-boto3
@@ -374,7 +368,6 @@ def send_instance_cmd(ssh_user, ssh_private_key, public_ip, cmd,
         cmd (list): 커맨드 문자열 리스트
         show_error (bool): 에러 메시지 출력 여부
         retry_count (int): 재시도 횟수
-        invoke_shell (bool): Shell로 실행 여부(추가된 환경변수 적용을 위해)
 
     Returns:
         tuple: send_command 함수의 결과 (stdout, stderr)
@@ -404,27 +397,11 @@ def send_instance_cmd(ssh_user, ssh_private_key, public_ip, cmd,
         error("Connection failed to '{}'".format(public_ip))
         return
 
-    if not invoke_shell:
-        stdin, stdout, stderr = client.exec_command(cmd)
-        stdouts = stdout.readlines()
-        err = stderr.read()
-        if show_error and len(err) > 0:
-            error(err.decode('utf-8'))
-    else:
-        # .bashrc에 추가된 환경 변수는 shell로 실행해야만 적용!?
-        sh = client.invoke_shell()
-        sh.settimeout(3)
-        sh.send(cmd + '\n')
-        err = None
-        parts = []
-        try:
-            part = sh.recv(1024)
-            while part:
-                part = sh.recv(1024)
-                parts.append(part)
-        except socket.timeout:
-            stdout = ''.join([part.decode('utf-8') for part in parts])
-            stdouts = stdout.split('\n')
+    stdin, stdout, stderr = client.exec_command(cmd)
+    stdouts = stdout.readlines()
+    err = stderr.read()
+    if show_error and len(err) > 0:
+        error(err.decode('utf-8'))
 
     client.close()
 
@@ -480,24 +457,23 @@ def git_clone_cmd(gobj, workdir):
     return cmd
 
 
-def copy_envvar_cmd(name):
-    """로컬 환경변수를 복사해 명령 구성."""
-    value = os.environ[name]
-    cmd = "echo 'export {}={}' >> ~/.bashrc".format(name, value)
-    return cmd
+def setup_aws_creds(user, private_key, public_ip):
+    """AWS 크레덴셜 설치."""
 
+    cmds = [
+        'mkdir ~/.aws',
+        'cd ~/.aws',
+        'echo [default] > credentials',
+        'echo [default] >  config'
+    ]
 
-def install_aws_credential(user, private_key, public_ip, extras=None):
-    """환경 변수 추가."""
-    cmds = []
-    for ev in COPY_ENVVARS:
-        cmd = copy_envvar_cmd(ev)
+    for name in ['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY']:
+        value = os.environ[name]
+        cmd = 'echo "{} = {}" >> credentials'.format(name.lower(), value)
         cmds.append(cmd)
 
-    if extras is not None:
-        for name, value in extras:
-            cmd = "echo 'export {}={}' >> ~/.bashrc".format(name, value)
-            cmds.append(cmd)
+    region = os.environ['AWS_DEFAULT_REGION']
+    cmd = 'echo "region = {}" >> config'.format(region)
 
     cmd = '; '.join(cmds)
     send_instance_cmd(user, private_key, public_ip, cmd)
@@ -519,16 +495,8 @@ def start_notebook(pobj, clinfo, retry_count=10):
     user, private_key = ncfg['ssh_user'], ncfg['ssh_private_key']
     public_ip = ncfg['public_ip']
 
-    # 환경 변수 추가
-    extras = []
-    if 'type' in clinfo:
-        if clinfo['type'] == 'dask':
-            dns = clinfo['scheduler']['private_dns_name']
-            ev = ('DASK_SCHEDULER_ADDRESS', 'tcp://{}:8786'.format(dns))
-            extras.append(ev)
-        else:
-            raise NotImplementedError()
-    append_envvars(user, private_key, public_ip, extras)
+    # AWS 크레덴셜 설치
+    setup_aws_creds(user, private_key, public_ip)
 
     # 작업 폴더
     nb_workdir = pobj.nb_workdir or NB_WORKDIR
@@ -542,9 +510,18 @@ def start_notebook(pobj, clinfo, retry_count=10):
         gcdir = pobj.nb_git.repository.split('/')[-1].replace('.git', '')
         clinfo['git_cloned_dir'] = os.path.join(nb_workdir, gcdir)
 
+    # 클러스터 타입별 노트북 옵션
+    vars = ''
+    if 'type' in clinfo:
+        if clinfo['type'] == 'dask':
+            dns = clinfo['scheduler']['private_dns_name']
+            vars = "DASK_SCHEDULER_ADDRESS=tcp://{}:8786".format(dns)
+        else:
+            raise NotImplementedError()
+
     # Jupyter 시작
-    cmd = "screen -S bilbo -d -m bash -c 'source ~/.bashrc; jupyter lab --ip 0.0.0.0'".format()
-    send_instance_cmd(user, private_key, public_ip, cmd, invoke_shell=True)
+    cmd = "{} screen -S bilbo -d -m jupyter lab --ip 0.0.0.0".format(vars)
+    send_instance_cmd(user, private_key, public_ip, cmd)
 
     # 접속 URL 얻기
     cmd = "jupyter notebook list | awk '{print $1}'"
@@ -571,8 +548,9 @@ def start_dask_cluster(clinfo):
     scd_dns = scd['private_dns_name']
     cmd = "screen -S bilbo -d -m dask-scheduler"
     send_instance_cmd(user, private_key, public_ip, cmd)
-    # 환경 변수 추가
-    install_aws_credential(user, private_key, public_ip)
+
+    # AWS 크레덴셜 설치
+    setup_aws_creds(user, private_key, public_ip)
 
     winfo = clinfo['worker']
     # 워커 실행 옵션
@@ -590,8 +568,8 @@ def start_dask_cluster(clinfo):
     # 모든 워커들에 대해
     user, private_key = winfo['ssh_user'], winfo['ssh_private_key']
     for wrk in winfo['instances']:
-        # 환경 변수 추가
-        install_aws_credential(user, private_key, public_ip)
+        # AWS 크레덴셜 설치
+        setup_aws_creds(user, private_key, public_ip)
 
         # 워커 시작
         public_ip = wrk['public_ip']
