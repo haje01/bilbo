@@ -6,7 +6,6 @@ import datetime
 import warnings
 import time
 import webbrowser
-import socket
 from urllib.request import urlopen
 from urllib.error import URLError
 
@@ -16,7 +15,7 @@ import paramiko
 
 from bilbo.profile import read_profile, DaskProfile, Profile
 from bilbo.util import critical, warning, error, clust_dir, iter_clusters, \
-    info, check_aws_envvars
+    info, get_aws_config
 
 warnings.filterwarnings("ignore")
 
@@ -229,7 +228,6 @@ def check_dup_cluster(clname):
 
 def create_cluster(profile, clname):
     """클러스터 생성."""
-    check_aws_envvars()
 
     if clname is None:
         clname = '.'.join(profile.lower().split('.')[0:-1])
@@ -372,8 +370,8 @@ def send_instance_cmd(ssh_user, ssh_private_key, public_ip, cmd,
     Returns:
         tuple: send_command 함수의 결과 (stdout, stderr)
     """
-    info('send_instance_cmd - user: {}, key: {}, ip {}, cmd: "{}"'
-         .format(ssh_user, ssh_private_key, public_ip, cmd))
+    info('send_instance_cmd - user: {}, key: {}, ip {}'
+         .format(ssh_user, ssh_private_key, public_ip))
 
     key_path = expanduser(ssh_private_key)
 
@@ -459,21 +457,20 @@ def git_clone_cmd(gobj, workdir):
 
 def setup_aws_creds(user, private_key, public_ip):
     """AWS 크레덴셜 설치."""
-
     cmds = [
-        'mkdir ~/.aws',
+        'mkdir -p ~/.aws',
         'cd ~/.aws',
         'echo [default] > credentials',
-        'echo [default] >  config'
+        'echo [default] > config'
     ]
 
-    for name in ['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY']:
-        value = os.environ[name]
-        cmd = 'echo "{} = {}" >> credentials'.format(name.lower(), value)
-        cmds.append(cmd)
-
-    region = os.environ['AWS_DEFAULT_REGION']
-    cmd = 'echo "region = {}" >> config'.format(region)
+    ak, sk, dr = get_aws_config()
+    cmd = 'echo "aws_access_key_id = {}" >> credentials'.format(ak)
+    cmds.append(cmd)
+    cmd = 'echo "aws_secret_access_key = {}" >> credentials'.format(sk)
+    cmds.append(cmd)
+    cmd = 'echo "region = {}" >> config'.format(dr)
+    cmds.append(cmd)
 
     cmd = '; '.join(cmds)
     send_instance_cmd(user, private_key, public_ip, cmd)
@@ -488,6 +485,7 @@ def start_notebook(pobj, clinfo, retry_count=10):
 
     Raises:
         TimeoutError: 재시도 수가 넘을 때
+
     """
     critical("Start notebook.")
 

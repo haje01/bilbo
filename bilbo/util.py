@@ -1,6 +1,7 @@
 """각종 유틸리티 함수."""
 import os
 import logging
+from configparser import ConfigParser
 from logging.handlers import RotatingFileHandler
 
 
@@ -129,7 +130,12 @@ def iter_clusters():
 
 
 def check_aws_envvars():
-    """AWS 관련 환경변수를 체크."""
+    """AWS 관련 환경변수를 체크.
+
+    Raises:
+        RuntimeError: 환경 변수가 없을 때
+
+    """
 
     def _check(ev):
         if ev not in os.environ:
@@ -139,3 +145,46 @@ def check_aws_envvars():
     _check('AWS_ACCESS_KEY_ID')
     _check('AWS_SECRET_ACCESS_KEY')
     _check('AWS_DEFAULT_REGION')
+
+
+def get_aws_config():
+    """AWS 관련 정보 획득.
+
+    aws cli 의 credential/config 가 있으면 그것을 우선하고, 아니면 환경 변수에서 얻음
+
+    Returns:
+        tuple: Access Key, Secret Key, Region
+
+    """
+    info("get_aws_config")
+    # aws cli 의 credential/config 가 있으면 그것을 우선
+    aws_dir = os.path.join(home_dir, '.aws')
+    if os.path.isdir(aws_dir):
+        cred_path = os.path.join(aws_dir, 'credentials')
+        cfg_path = os.path.join(aws_dir, 'config')
+        if os.path.isfile(cred_path) and os.path.isfile(cfg_path):
+            return get_aws_config_from_cfg(cred_path, cfg_path)
+    return get_aws_config_from_envvars()
+
+
+def get_aws_config_from_cfg(cred_path, cfg_path):
+    """AWS CLI Credentials/Config 파일에서 설정을 얻음."""
+    info("get_aws_config_from_cfg : {}, {}".format(cred_path, cfg_path))
+    cred = ConfigParser()
+    cred.read(cred_path)
+    cfg = ConfigParser()
+    cfg.read(cfg_path)
+    ak = cred['default']['aws_access_key_id']
+    sa = cred['default']['aws_secret_access_key']
+    dr = cfg['default']['region']
+    return ak, sa, dr
+
+
+def get_aws_config_from_envvars():
+    """환경 변수에서 AWS 설정을 얻음."""
+    info("get_aws_config_from_envvars")
+    check_aws_envvars()
+    ak = os.environ['AWS_ACCESS_KEY_ID']
+    sa = os.environ['AWS_SECRET_ACCESS_KEY']
+    dr = os.environ['AWS_DEFAULT_REGION']
+    return ak, sa, dr
