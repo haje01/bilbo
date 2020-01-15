@@ -9,6 +9,7 @@ setup(
     name='bilbo',
     version=version,
     author='haje01',
+    python_requires='>=3.5',
     entry_points={
         'console_scripts': [
             'bilbo = bilbo.cli:main'
