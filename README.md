@@ -164,7 +164,7 @@ Packer의 설정파일은 `.json` 형식으로 기술한다. 적당한 이미지
 }
 ```
 
-* 앞에서 언급한 환경변수 `AWS_ACCESS_KEY_ID`와 `AWS_SECRET_ACCESS_KEY`에 설정되어 있어야 한다.
+* {{env `AWS_ACCESS_KEY_ID`}} 는 앞에서 언급한 환경 변수 `AWS_ACCESS_KEY_ID` 를 읽어오는 부분이다.
 * `instance-type` 은 이미지를 만들기 위한 VM의 타입이기에 `t2.micro`로 충분하다.
 * `provisioners` 아래에 설치 스크립트가 온다.
 * 첫 번째 쉘 스크립트에 `sleep 60`은 OS의 초기 작업이 끝나기를 기다리기 위한 것이다.
@@ -529,7 +529,7 @@ AWS EC2 대쉬보드에서도 생성된 인스턴스를 확인할 수 있다. �
     },
     "notebook": {
         "instance": {
-            "ec2type": "g3s.xlarge"
+            "ec2type": "t3.small"
         }
     },
     "dask": {
@@ -540,7 +540,7 @@ AWS EC2 대쉬보드에서도 생성된 인스턴스를 확인할 수 있다. �
 }
 ```
 
-비교적 저렴한 `g3s.xlarge` GPU 인스턴스를 이용하도록 하였다. 이것으로 클러스터를 만들고,
+노트북은 `t3.small` , Dask 스케쥴러/워커는 `t3.micro` 를 이용하도록 하였다. 이것으로 클러스터를 만들고,
 
     $ bilbo create test.json -n test-cluster
 

@@ -304,10 +304,11 @@ def show_cluster(clname, detail=False):
         print("")
         print("Notebook:")
         idx = show_instance(idx, info['notebook'])
+        print("")
 
     if 'type' in info:
         cltype = info['type']
-        print("Type: {}".format(cltype))
+        print("Cluster Type: {}".format(cltype))
         if cltype == 'dask':
             show_dask_cluster(idx, info)
         else:
