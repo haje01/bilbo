@@ -201,7 +201,7 @@ pip install 'fsspec>=0.6.2'
 
 #### Packer로 AMI 만들기
 
-이제 아래의 명령으로 AMI을 만든다.
+이제 아래의 명령으로 AMI 를 만든다.
 
     $ packer build my-image.json
 
