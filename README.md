@@ -144,7 +144,7 @@ Packer의 설정파일은 `.json` 형식으로 기술한다. 적당한 이미지
             "access_key": "{{user `aws_access_key`}}",
             "ami_name": "my-image",
             "source_ami": "ami-099a57eaf71294a34",
-            "instance_type": "t2.micro",
+            "instance_type": "t3.micro",
             "region": "{{user `region`}}",
             "secret_key": "{{user `aws_secret_key`}}",
             "ssh_username": "ubuntu"
@@ -167,7 +167,7 @@ Packer의 설정파일은 `.json` 형식으로 기술한다. 적당한 이미지
 ```
 
 * ``{{env `AWS_ACCESS_KEY_ID`}}`` 는 앞에서 언급한 환경 변수 `AWS_ACCESS_KEY_ID` 를 읽어오는 부분이다.
-* `instance-type` 은 이미지를 만들기 위한 VM 의 타입이기에 `t2.micro`로 충분하다.
+* `instance-type` 은 이미지를 만들기 위한 VM 의 타입이기에 `t3.micro`로 충분하다.
 * `provisioners` 아래에 설치 스크립트가 온다.
 * 첫 번째 쉘 스크립트에 `sleep 60`은 OS 의 초기 작업이 끝나기를 기다리기 위한 것이다.
 
@@ -240,7 +240,7 @@ ap-northeast-2: ami-043c907754421d916
 
 성공하면 최종적으로 `ami-043c907754421d916` 와 같은 AMI ID 가 출력된다. 이 값을 기록해 두고, 이후 bilbo 에서 사용한다.
 
-이미지 만들기에 사용된 인스턴스( `t2.micro`) 는 자동으로 삭제되며, 생성된 이미지는 AWS EC2 대쉬보드 왼쪽 `AMI` 메뉴에서 AMI ID 또는 이름으로 확인할 수 있다.
+이미지 만들기에 사용된 인스턴스( `t3.micro`) 는 자동으로 삭제되며, 생성된 이미지는 AWS EC2 대쉬보드 왼쪽 `AMI` 메뉴에서 AMI ID 또는 이름으로 확인할 수 있다.
 
 위 과정에서 생성된 Packer 설정 파일 (`my-image.json`) 및 설치 스크립트(`setup.sh`) 를 코드 저장소에 추가하여 관리하면 될 것이다.
 
