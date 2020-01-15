@@ -72,7 +72,8 @@
                     "description": "Git user password",
                     "type": "string"
                 }
-            }
+            },
+            "required": ["repository", "user", "email", "password"]
         },
         "daskType": {
             "description": "Dask cluster configuration",

@@ -295,16 +295,16 @@ def show_cluster(clname, detail=False):
 
     info = load_cluster_info(clname)
 
-    print("")
-    print("Name: {}".format(info['name']))
+    print()
+    print("Cluster Name: {}".format(info['name']))
     print("Ready Time: {}".format(info['ready_time']))
 
     idx = 1
     if 'notebook' in info:
-        print("")
+        print()
         print("Notebook:")
         idx = show_instance(idx, info['notebook'])
-        print("")
+        print()
 
     if 'type' in info:
         cltype = info['type']
@@ -313,7 +313,7 @@ def show_cluster(clname, detail=False):
             show_dask_cluster(idx, info)
         else:
             raise NotImplementedError()
-    print("")
+    print()
 
 
 def show_instance(idx, inst):
@@ -324,25 +324,79 @@ def show_instance(idx, inst):
 
 def show_dask_cluster(idx, info):
     """Dask 클러스터 표시."""
-    print("")
+    print()
     print("Scheduler:")
     scd = info['scheduler']
     idx = show_instance(idx, scd)
 
-    print("")
+    print()
     print("Workers:")
     winfo = info['worker']
     for wrk in winfo['instances']:
         idx = show_instance(idx, wrk)
 
 
+def check_git_modified(clinfo):
+    """로컬 git 저장소 변경 여부.
+
+    Commit 되지 않거나, Push 되지 않은 내용이 있으면 경고
+
+    Returns:
+        bool: 변경이 없거나, 유저가 확인한 경우 True
+
+    """
+    public_ip = clinfo['notebook']['public_ip']
+    user = clinfo['notebook']['ssh_user']
+    private_key = clinfo['notebook']['ssh_private_key']
+    git_dir = clinfo['git_cloned_dir']
+
+    cmd = "cd {} && git status --porcelain | grep '^ M.*'".format(git_dir)
+    uncmts, _, = send_instance_cmd(user, private_key, public_ip, cmd)
+    uncmt_cnt = len(uncmts)
+
+    cmd = "cd {} && git cherry -v".format(git_dir)
+    unpushs, _, = send_instance_cmd(user, private_key, public_ip, cmd)
+    unpush_cnt = len(unpushs)
+
+    if uncmt_cnt > 0 or unpush_cnt > 0:
+        print()
+        print("There are {} uncommitted file(s) and {} unpushed commits(s)!".
+              format(uncmt_cnt, unpush_cnt))
+
+        if uncmt_cnt > 0:
+            print()
+            print("Uncommitted file(s)")
+            print("-------------------")
+            for f in uncmts:
+                print(f.strip())
+
+        if unpush_cnt > 0:
+            print()
+            print("Unpushed commit(s)")
+            print("-------------------")
+            for f in unpushs:
+                print(f.strip())
+
+        print()
+        ans = ''
+        while ans.lower() not in ('y', 'n'):
+            ans = input("Are you sure to destroy this cluster? (y/n): ")
+        return ans == 'y'
+
+    return True
+
+
 def destroy_cluster(clname):
     """클러스터 제거."""
     check_cluster(clname)
-
-    critical("Destroy cluster '{}'.".format(clname))
     info = load_cluster_info(clname)
 
+    if 'git_cloned_dir' in info:
+        if not check_git_modified(info):
+            print("Canceled.")
+            return
+
+    critical("Destroy cluster '{}'.".format(clname))
     # 인스턴스 제거
     ec2 = boto3.client('ec2')
     instances = info['instances']
@@ -371,8 +425,8 @@ def send_instance_cmd(ssh_user, ssh_private_key, public_ip, cmd,
     Returns:
         tuple: send_command 함수의 결과 (stdout, stderr)
     """
-    info('send_instance_cmd - user: {}, key: {}, ip {}'
-         .format(ssh_user, ssh_private_key, public_ip))
+    info('send_instance_cmd - user: {}, key: {}, ip {}, cmd {}'
+         .format(ssh_user, ssh_private_key, public_ip, cmd))
 
     key_path = expanduser(ssh_private_key)
 
@@ -448,6 +502,7 @@ def start_cluster(pobj, clinfo):
 
 
 def git_clone_cmd(gobj, workdir):
+    """Git 클론 명령 구성"""
     warning("git clone: {}".format(gobj.repository))
     repo = gobj.repository
     protocol, address = repo.split('://')
@@ -499,15 +554,12 @@ def start_notebook(pobj, clinfo, retry_count=10):
 
     # 작업 폴더
     nb_workdir = pobj.nb_workdir or NB_WORKDIR
-    cmd = "mkdir {}".format(nb_workdir)
+    cmd = "mkdir -p {}".format(nb_workdir)
     send_instance_cmd(user, private_key, public_ip, cmd)
 
-    # git 클론
+    # git 설정이 있으면 설정
     if pobj.nb_git is not None:
-        cmd = git_clone_cmd(pobj.nb_git, nb_workdir)
-        send_instance_cmd(user, private_key, public_ip, cmd, False)
-        gcdir = pobj.nb_git.repository.split('/')[-1].replace('.git', '')
-        clinfo['git_cloned_dir'] = os.path.join(nb_workdir, gcdir)
+        setup_git(pobj, user, private_key, public_ip, nb_workdir, clinfo)
 
     # 클러스터 타입별 노트북 옵션
     vars = ''
@@ -519,7 +571,8 @@ def start_notebook(pobj, clinfo, retry_count=10):
             raise NotImplementedError()
 
     # Jupyter 시작
-    cmd = "{} screen -S bilbo -d -m jupyter lab --ip 0.0.0.0".format(vars)
+    ncmd = "cd {} && jupyter lab --ip 0.0.0.0".format(nb_workdir)
+    cmd = "{} screen -S bilbo -d -m bash -c '{}'".format(vars, ncmd)
     send_instance_cmd(user, private_key, public_ip, cmd)
 
     # 접속 URL 얻기
@@ -534,6 +587,20 @@ def start_notebook(pobj, clinfo, retry_count=10):
         info("Can not fetch notebook list. Wait for a while.")
         time.sleep(3)
     raise TimeoutError("Can not get notebook url.")
+
+
+def setup_git(pobj, user, private_key, public_ip, nb_workdir, clinfo):
+    """Git 설정 및 클론."""
+    # config
+    cmd = "git config --global user.name '{}'; ".format(pobj.nb_git.user)
+    cmd += "git config --global user.email '{}'".format(pobj.nb_git.email)
+    send_instance_cmd(user, private_key, public_ip, cmd)
+
+    # 클론 (작업폴더에)
+    cmd = git_clone_cmd(pobj.nb_git, nb_workdir)
+    send_instance_cmd(user, private_key, public_ip, cmd, False)
+    gcdir = pobj.nb_git.repository.split('/')[-1].replace('.git', '')
+    clinfo['git_cloned_dir'] = os.path.join(nb_workdir, gcdir)
 
 
 def start_dask_cluster(clinfo):

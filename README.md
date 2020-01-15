@@ -580,9 +580,21 @@ Dask 클라이언트를 인자 없이 생성한다.
 
 ### 활용 팁
 
+#### 작업 폴더
+
+기본으로 설정된 작업 폴더는 `~/works` 이다. 다음처럼 노트북에 설정한다.
+
+```json
+    "notebook": {
+        "workdir": "my_work_dir"
+    }
+```
+
+이어 설명할 Git 코드 받기를 이용하면, 작업 폴더 아래에 클론된다.
+
 #### Git 저장소에서 코드 받기
 
-클러스터 생성 후 노트북 인스턴스에 GitHub 등에 있는 자신의 코드를 받아오도록(Clone) 설정할 수 있다.
+클러스터 생성 후 노트북 인스턴스에 GitHub 등에 있는 자신의 코드를 받아오도록 클론 할 수 있다. 다음처럼 노트북에 설정한다.
 
 ```json
     "notebook": {
@@ -596,9 +608,28 @@ Dask 클라이언트를 인자 없이 생성한다.
 ```
 
 * `repository`는 `https://github.com/haje01/bilbo.git` 처럼 `https`로 시작해야 한다.
-* 오픈소스 프로젝트의 저장소라면 `user`, `email`, `password` 등의 정보가 클려도 클론은 되지만, 커밋은 불가하다.
+* 오픈소스 프로젝트의 저장소라면 `user`, `email`, `password` 등의 정보가 틀려도 클론은 되지만, 커밋은 불가하다.
 * **설정에 `password`가 들어가기에 누출되지 않도록 조심하자!**
 
+만약 클론된 코드가 수정된 후 커밋되지 않았거나, 커밋되었으나 푸쉬되지 않은 경우가 있는데도 이 클러스터를 제거하려 하면 다음처럼 경고 메시지가 나올 것이다.
+
+```
+$ bilbo destroy test
+
+There are 1 uncommitted file(s) and 1 unpushed commits(s)!
+
+Uncommitted file(s)
+-------------------
+M my_code.py
+
+Unpushed commit(s)
+-------------------
++ 3f6dbce2a0874099b626917cb0039b5af104efb6 comment
+
+Are you sure to destroy this cluster? (y/n):
+```
+
+여기에서 y 또는 n 을 입력하여 제거 여부를 결정할 수 있다.
 
 #### 클러스터 재시작
 
