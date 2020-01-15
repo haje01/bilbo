@@ -566,6 +566,7 @@ def start_dask_cluster(clinfo):
     # 모든 워커들에 대해
     user, private_key = winfo['ssh_user'], winfo['ssh_private_key']
     for wrk in winfo['instances']:
+        public_ip = wrk['public_ip']
         # AWS 크레덴셜 설치
         setup_aws_creds(user, private_key, public_ip)
 
