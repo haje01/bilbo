@@ -167,9 +167,9 @@ Packer의 설정파일은 `.json` 형식으로 기술한다. 적당한 이미지
 ```
 
 * ``{{env `AWS_ACCESS_KEY_ID`}}`` 는 앞에서 언급한 환경 변수 `AWS_ACCESS_KEY_ID` 를 읽어오는 부분이다.
-* `instance-type` 은 이미지를 만들기 위한 VM의 타입이기에 `t2.micro`로 충분하다.
+* `instance-type` 은 이미지를 만들기 위한 VM 의 타입이기에 `t2.micro`로 충분하다.
 * `provisioners` 아래에 설치 스크립트가 온다.
-* 첫 번째 쉘 스크립트에 `sleep 60`은 OS의 초기 작업이 끝나기를 기다리기 위한 것이다.
+* 첫 번째 쉘 스크립트에 `sleep 60`은 OS 의 초기 작업이 끝나기를 기다리기 위한 것이다.
 
 필요한 패키지의 설치는 `setup.sh` 에 별도로 기술한다.
 
