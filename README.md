@@ -30,6 +30,8 @@ bilbo 는 Linux, macOS, Windows 에서 사용 가능하며, Python 3.6 이상 �
     - [로컬 노트북에서 클라우드 Dask 이용하기](#%eb%a1%9c%ec%bb%ac-%eb%85%b8%ed%8a%b8%eb%b6%81%ec%97%90%ec%84%9c-%ed%81%b4%eb%9d%bc%ec%9a%b0%eb%93%9c-dask-%ec%9d%b4%ec%9a%a9%ed%95%98%ea%b8%b0)
     - [클라우드 노트북에서 클라우드 Dask 이용하기](#%ed%81%b4%eb%9d%bc%ec%9a%b0%eb%93%9c-%eb%85%b8%ed%8a%b8%eb%b6%81%ec%97%90%ec%84%9c-%ed%81%b4%eb%9d%bc%ec%9a%b0%eb%93%9c-dask-%ec%9d%b4%ec%9a%a9%ed%95%98%ea%b8%b0)
     - [활용 팁](#%ed%99%9c%ec%9a%a9-%ed%8c%81)
+      - [작업 폴더](#%ec%9e%91%ec%97%85-%ed%8f%b4%eb%8d%94)
+      - [Git 저장소에서 코드 받기](#git-%ec%a0%80%ec%9e%a5%ec%86%8c%ec%97%90%ec%84%9c-%ec%bd%94%eb%93%9c-%eb%b0%9b%ea%b8%b0)
       - [클러스터 재시작](#%ed%81%b4%eb%9f%ac%ec%8a%a4%ed%84%b0-%ec%9e%ac%ec%8b%9c%ec%9e%91)
       - [워커 설정](#%ec%9b%8c%ec%bb%a4-%ec%84%a4%ec%a0%95)
 ---
