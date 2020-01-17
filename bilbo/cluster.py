@@ -20,6 +20,7 @@ from bilbo.util import critical, warning, error, clust_dir, iter_clusters, \
 warnings.filterwarnings("ignore")
 
 NB_WORKDIR = "~/works"
+TRY_SLEEP = 6
 
 
 def cluster_info_exists(clname):
@@ -194,7 +195,7 @@ def wait_until_connect(url, retry_count=10):
             return
         except URLError:
             info("Can not connect to dashboard. Wait for a while.")
-            time.sleep(10)
+            time.sleep(TRY_SLEEP)
     raise ConnectionError()
 
 
@@ -441,7 +442,7 @@ def send_instance_cmd(ssh_user, ssh_private_key, public_ip, cmd,
         except (paramiko.ssh_exception.NoValidConnectionsError, TimeoutError):
             warning("Connection failed to '{}'. Retry after a while.".
                     format(public_ip))
-            time.sleep(5)
+            time.sleep(TRY_SLEEP)
         else:
             connected = True
             break
@@ -565,14 +566,15 @@ def start_notebook(pobj, clinfo, retry_count=10):
     vars = ''
     if 'type' in clinfo:
         if clinfo['type'] == 'dask':
+            ip = clinfo['scheduler']['public_ip']
             dns = clinfo['scheduler']['private_dns_name']
             vars = "DASK_SCHEDULER_ADDRESS=tcp://{}:8786".format(dns)
         else:
             raise NotImplementedError()
 
     # Jupyter 시작
-    ncmd = "cd {} && jupyter lab --ip 0.0.0.0".format(nb_workdir)
-    cmd = "{} screen -S bilbo -d -m bash -c '{}'".format(vars, ncmd)
+    ncmd = "cd {} && {} jupyter lab --ip 0.0.0.0".format(nb_workdir, vars)
+    cmd = "screen -S bilbo -d -m bash -c '{}'".format(ncmd)
     send_instance_cmd(user, private_key, public_ip, cmd)
 
     # 접속 URL 얻기
@@ -585,7 +587,7 @@ def start_notebook(pobj, clinfo, retry_count=10):
             clinfo['notebook_url'] = url
             return
         info("Can not fetch notebook list. Wait for a while.")
-        time.sleep(3)
+        time.sleep(TRY_SLEEP)
     raise TimeoutError("Can not get notebook url.")
 
 

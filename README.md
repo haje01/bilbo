@@ -183,7 +183,8 @@ sudo DEBIAN_FRONTEND=noninteractive apt-get install -y nodejs
 pip install blosc
 pip install lz4
 pip install python-snappy
-pip install 'dask>=2.9.0'
+pip install 'distributed==2.9.1'
+pip install 'dask>=2.9.1'
 pip install 'numpy>=1.17.3'
 pip install 'pandas>=0.25.'
 pip install 'jupyterlab>=0.35.0'
@@ -196,7 +197,7 @@ pip install 's3fs>=0.4.0'
 pip install 'fsspec>=0.6.2'
 ```
 
-추가적으로 필요한 패키지도 등록할 수 있겠다.
+> 현재 (2020년 1월) [distributed 2.9.2 는 Python 3.6 에서 에러가 발생](https://github.com/dask/distributed/issues/3381) 하여 2.9.1 로 고정했다. 상황에 맞게 수정하여 사용하면 되겠다.
 
 #### Packer로 AMI 만들기
 
@@ -424,7 +425,7 @@ AWS EC2 대쉬보드에서도 생성된 노트북 인스턴스를 볼 수 있다
 
 기본 웹브라우저를 통해 생성된 인스턴스의 노트북 페이지가 열린다.
 
-![노트북](/assets/2020-01-08-15-58-31.png)
+![노트북](/assets/2020-01-17-11-27-05.png)
 
 > 만약, 별도의 웹브라우저를 사용하고 싶다면, 프로파일에 `"webbrowser" : "C:\\Program Files (x86)\\Google\\Chrome\\Applications\\chrome.exe"` 식으로 경로를 명시하면 된다.
 
