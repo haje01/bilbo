@@ -562,11 +562,18 @@ def start_notebook(pobj, clinfo, retry_count=10):
     if pobj.nb_git is not None:
         setup_git(pobj, user, private_key, public_ip, nb_workdir, clinfo)
 
-    # 클러스터 타입별 노트북 옵션
+    # 클러스터 타입별 노트북 설정
     vars = ''
     if 'type' in clinfo:
         if clinfo['type'] == 'dask':
+            # dask-labextension을 위한 대쉬보드 URL
             ip = clinfo['scheduler']['public_ip']
+            cmd = "mkdir -p ~/.jupyter/lab/user-settings/dask-labextension; "
+            cmd += 'echo \'{{ "defaultURL": "http://{}:8787" }}\' > ' \
+                   '~/.jupyter/lab/user-settings/dask-labextension/' \
+                   'plugin.jupyterlab-settings'.format(ip)
+            send_instance_cmd(user, private_key, public_ip, cmd)
+            # 스케쥴러 주소
             dns = clinfo['scheduler']['private_dns_name']
             vars = "DASK_SCHEDULER_ADDRESS=tcp://{}:8786".format(dns)
         else:
