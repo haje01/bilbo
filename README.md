@@ -184,7 +184,7 @@ pip install blosc
 pip install lz4
 pip install python-snappy
 pip install 'distributed==2.9.1'
-pip install 'dask>=2.9.1'
+pip install 'dask>=2.9.1'
 pip install 'numpy>=1.17.3'
 pip install 'pandas>=0.25.'
 pip install 'jupyterlab>=0.35.0'
