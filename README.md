@@ -125,8 +125,8 @@ AWS EC2 인스턴스를 만들고 관리하기 위해 아래의 준비가 필요
 설명에서는 기계학습을 위한 이미지를 가정해, AWS에서 제공하는 `Deep Learning AMI (Ubuntu 16.04) Version 26.0` 을 소스 AMI로 하겠다 (CUDA 등이 미리 설치되어있어 향후 GPU 인스턴스를 사용할 때 편리하다). bilbo 를 위해 필수로 설치해야 하는 것들은 다음과 같다.
 
 * 클러스터 - Dask 관련 패키지
-* 트북 - Jupyter Lab을 기준으로 한다.
-* 기타 Python 데이터 과학 패키지
+* 노트북 - Jupyter Lab을 기준으로 한다.
+* 기타 - Python 데이터 과학 패키지
 
 노트북/스케쥴러/워커 등 인스턴스 역할별로 AMI 를 따로 만들어 사용할 수 도 있으나, 유지보수의 편의상 모두 하나의 AMI 에 설치하겠다.
 
@@ -659,7 +659,7 @@ Are you sure to destroy this cluster? (y/n):
 ```json
     "instance": {
         "tags": [
-            ["Owner", "haje01@webzen.com"],
+            ["Owner", "haje01@gmail.com"],
             ["Service", "MyService"]
         ]
     }
