@@ -359,7 +359,7 @@ bilbo 는 분석을 위한 1) 노트북이 사용자의 로컬 머신에 있을 
     CRITICAL: Create notebook.
     CRITICAL: Start notebook.
 
-    Name: test
+    Cluster Name: test
     Ready Time: 2020-01-08 15:45:29
 
     Notebook:
@@ -387,7 +387,7 @@ AWS EC2 대쉬보드에서도 생성된 노트북 인스턴스를 볼 수 있다
 
     $ bilbo desc test
 
-    Name: test4
+    Cluster Name: test4
     Ready Time: 2020-01-08 17:20:45
 
     Notebook:
@@ -483,9 +483,10 @@ AWS EC2 대쉬보드에서도 생성된 노트북 인스턴스를 볼 수 있다
     CRITICAL: Start dask scheduler & workers.
     CRITICAL: Waiting for Dask dashboard ready.
 
-    Name: test-cluster
+    Cluster Name: test-cluster
     Ready Time: 2020-01-08 17:27:33
-    Type: dask
+
+    Cluster Type: dask
 
     Scheduler:
         [1] instance_id: i-0c0daef0140104f93, public_ip: 13.125.254.215
@@ -552,12 +553,13 @@ AWS EC2 대쉬보드에서도 생성된 인스턴스를 확인할 수 있다. �
     CRITICAL: Start dask scheduler & workers.
     CRITICAL: Waiting for Dask dashboard ready.
 
-    Name: test-cluster
+    Cluster Name: test-cluster
     Ready Time: 2020-01-09 10:27:46
 
     Notebook:
     [1] instance_id: i-0c69620cad536bf43, public_ip: 13.124.57.145
-    Type: dask
+
+    Cluster Type: dask
 
     Scheduler:
     [2] instance_id: i-068c450413c6adf06, public_ip: 54.180.24.43
