@@ -69,8 +69,33 @@ def read_profile(profile):
 class Instance:
     """프로파일 내 노드 정보."""
 
-    def __init__(self, icfg):
+    @staticmethod
+    def resolve(pinst, cfg, role, prefix):
+        """상위 인스턴스 설정을 복사 후 자신의 설정으로 덮어 씀."""
+        inst = icfg = None
+        if cfg is not None:
+            icfg = cfg.get('instance')
+
+        if pinst is not None:
+            inst = copy(pinst)
+            inst.role = role
+            inst.prefix = prefix
+            if icfg is not None:
+                inst.overwrite(icfg)
+        elif icfg is not None:
+            inst = Instance(icfg, role, prefix)
+
+        # 상위 및 자신의 설정에 인스턴스 정보가 앖음
+        if inst is None:
+            raise RuntimeError("No instance config available for '{}'.".
+                               format(role))
+        return inst
+
+    def __init__(self, icfg, role='default', prefix=None):
         """설정에서 멤버 초기화."""
+        self.cfg = icfg
+        self.role = role
+        self.prefix = prefix
         self.ami = icfg.get('ami')
         self.ec2type = icfg.get('ec2type')
         self.keyname = icfg.get('keyname')
@@ -79,8 +104,18 @@ class Instance:
         self.ssh_private_key = icfg.get('ssh_private_key')
         self.tags = icfg.get('tags')
 
+    def get_name(self, clname):
+        if self.prefix is None:
+            return '{}-{}'.format(clname, self.role)
+        else:
+            return '{}{}-{}'.format(self.prefix, clname, self.role)
+
     def overwrite(self, icfg):
-        """다른 설정으로 멤버 덮어쓰기."""
+        """다른 설정으로 멤버 덮어쓰기.
+
+        Args:
+            icfg (dict): 다른 인스턴스의 설정
+        """
         self.ami = icfg.get('ami', self.ami)
         self.ec2type = icfg.get('ec2type', self.ec2type)
         self.keyname = icfg.get('keyname', self.keyname)
@@ -92,18 +127,23 @@ class Instance:
 
     def validate(self):
         """인스턴스 유효성 점검."""
+
+        def _raise(vtype, role):
+            raise RuntimeError("No '{}' value for '{}'.".format(vtype,
+                                                                self.role))
+
         if self.ami is None:
-            raise ValueError("No 'ami' value.")
+            _raise('ami', self.role)
         if self.ec2type is None:
-            raise ValueError("No 'ec2type' value.")
+            _raise('ec2type', self.role)
         if self.keyname is None:
-            raise ValueError("No 'keyname' value.")
+            _raise('keyname', self.role)
         if self.secgroup is None:
-            raise ValueError("No 'secrurity_group' value.")
+            _raise('secrurity_group', self.role)
         if self.ssh_user is None:
-            raise ValueError("No 'ssh_user' value.")
+            _raise('ssh_user', self.role)
         if self.ssh_private_key is None:
-            raise ValueError("No 'ssh_private_key' value.")
+            _raise('ssh_private_key', self.role)
 
 
 class Git:
@@ -125,24 +165,23 @@ class Profile:
     def __init__(self, pcfg):
         """초기화 및 검증."""
         validate_by_schema(pcfg)
-        # 공통 노드 정보
+
+        # 공통 정보
+        self.inst_prefix = pcfg.get("instance_prefix")
         self.inst = None
         if 'instance' in pcfg:
             self.inst = Instance(pcfg['instance'])
 
         # 기타 정보
-        self.webbrowser = None
-        if 'webbrowser' in pcfg:
-            self.webbrowser = pcfg['webbrowser']
+        self.instance_prefix = pcfg.get('instance_prefix')
+        self.webbrowser = pcfg.get('webbrowser')
 
         # 노트북 정보
         self.nb_inst = self.nb_workdir = self.nb_git = None
         ncfg = pcfg.get('notebook')
         if ncfg is not None:
-            self.nb_inst = copy(self.inst)
-            nicfg = ncfg.get('instance')
-            if nicfg is not None:
-                self.nb_inst.overwrite(nicfg)
+            self.nb_inst = Instance.resolve(self.inst, ncfg, 'notebook',
+                                            self.inst_prefix)
 
             if 'workdir' in ncfg:
                 self.nb_workdir = ncfg['workdir']
@@ -172,23 +211,18 @@ class DaskProfile(Profile):
         self.clcfg = pcfg.get('dask')
 
         # 스케쥴러
-        self.scd_inst = copy(self.inst)
-        self.scd_cnt = 1
         scfg = self.clcfg.get('scheduler')
-        if scfg is not None:
-            sicfg = scfg.get('instance')
-            if sicfg is not None:
-                self.scd_inst.overwrite(sicfg)
+        self.scd_inst = Instance.resolve(self.inst, scfg, 'scheduler',
+                                         self.inst_prefix)
+        self.scd_cnt = 1
 
         # 워커
-        self.wrk_inst = copy(self.inst)
         wcfg = self.clcfg.get('worker')
+        self.wrk_inst = Instance.resolve(self.inst, wcfg, 'worker',
+                                         self.inst_prefix)
         self.wrk_cnt = DEFAULT_WORKER
         self.wrk_nthread = self.wrk_nproc = None
         if wcfg is not None:
-            wicfg = wcfg.get('instance')
-            if wicfg is not None:
-                self.wrk_inst.overwrite(wicfg)
             self.wrk_cnt = wcfg.get('count', self.wrk_cnt)
             self.wrk_nthread = wcfg.get('nthread')
             self.wrk_nproc = wcfg.get('nproc')
@@ -196,10 +230,8 @@ class DaskProfile(Profile):
     def validate(self):
         """프로파일 유효성 점검."""
         super(DaskProfile, self).validate()
-        if self.scd_inst is not None:
-            self.scd_inst.validate()
-        if self.wrk_inst is not None:
-            self.wrk_inst.validate()
+        self.scd_inst.validate()
+        self.wrk_inst.validate()
 
 
 def show_plan(profile, clname):

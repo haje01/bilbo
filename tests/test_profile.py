@@ -117,8 +117,31 @@ def test_dask_complex():
     assert pro.wrk_inst.tags[0][1] == "WrkOwner"
 
 
-def test_notebook():
+def test_profile():
     cfg = {
+    }
+    pro = Profile(cfg)
+    assert pro.inst is None
+    assert pro.nb_inst is None
+
+    cfg = {
+        "notebook": {
+        }
+    }
+    with pytest.raises(RuntimeError, match=r"No instance config.*notebook.*"):
+        pro = Profile(cfg)
+
+    cfg = {
+        "notebook": {
+            "instance": {}
+        }
+    }
+    pro = Profile(cfg)
+    with pytest.raises(RuntimeError, match=r"No 'ami'.*"):
+        pro.validate()
+
+    cfg = {
+        "instance_prefix": "my-",
         "instance": {
             'ami': 'ami-000',
             "ec2type": "base-ec2type",
@@ -145,6 +168,7 @@ def test_notebook():
         }
     }
     pro = Profile(cfg)
+    assert pro.inst_prefix == "my-"
     assert pro.nb_inst is not None
     assert pro.nb_inst.ami == 'ami-000'
     assert pro.nb_inst.ec2type == "m5.xlarge"
@@ -152,6 +176,7 @@ def test_notebook():
     assert pro.nb_git is not None
     assert pro.nb_git.user == 'haje01'
     assert pro.nb_git.password == 'password'
+    assert pro.nb_inst.get_name('test') == "my-test-notebook"
 
 
 def test_validate():
@@ -174,7 +199,7 @@ def test_validate():
         }
     }
     pro = Profile(cfg)
-    with pytest.raises(ValueError, match=r".*ssh.*"):
+    with pytest.raises(RuntimeError, match=r".*ssh.*"):
         pro.validate()
 
     cfg = {
@@ -195,6 +220,6 @@ def test_validate():
         }
     }
     pro = DaskProfile(cfg)
-    with pytest.raises(ValueError, match=r".*ssh.*"):
+    with pytest.raises(RuntimeError, match=r".*ssh.*"):
         pro.validate()
 

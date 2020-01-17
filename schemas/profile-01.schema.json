@@ -125,6 +125,10 @@
             "type": "string",
             "description": "Schema URI"
         },
+        "instance_prefix": {
+            "description": "Instance name prefix",
+            "type": "string"
+        },
         "instance": {
             "description": "Common instance configuration",
             "$ref": "#/definitions/instanceType"

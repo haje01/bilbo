@@ -96,7 +96,7 @@ def create_dask_cluster(clname, pobj, ec2, clinfo):
     clinfo['type'] = 'dask'
 
     # create scheduler
-    scd_name = '{}-dask-scheduler'.format(clname)
+    scd_name = pobj.scd_inst.get_name(clname)
     scd_tag_spec = _build_tag_spec(scd_name, pobj.scd_inst.tags)
     ins = create_ec2_instances(ec2, pobj.scd_inst, 1, scd_tag_spec)
     scd = ins[0]
@@ -104,7 +104,7 @@ def create_dask_cluster(clname, pobj, ec2, clinfo):
     clinfo['launch_time'] = datetime.datetime.now()
 
     # create workers
-    wrk_name = '{}-dask-worker'.format(clname)
+    wrk_name = pobj.wrk_inst.get_name(clname)
     wrk_tag_spec = _build_tag_spec(wrk_name, pobj.wrk_inst.tags)
     ins = create_ec2_instances(ec2, pobj.wrk_inst, pobj.wrk_cnt, wrk_tag_spec)
     inst = pobj.wrk_inst
@@ -202,7 +202,7 @@ def wait_until_connect(url, retry_count=10):
 def create_notebook(clname, pobj, ec2, clinfo):
     """노트북 생성."""
     critical("Create notebook.")
-    nb_name = '{}-notebook'.format(clname)
+    nb_name = pobj.nb_inst.get_name(clname)
     nb_tag_spec = _build_tag_spec(nb_name, pobj.nb_inst.tags)
     ins = ec2.create_instances(ImageId=pobj.nb_inst.ami,
                                InstanceType=pobj.nb_inst.ec2type,
@@ -242,11 +242,12 @@ def create_cluster(profile, clname):
     clinfo = {'name': clname, 'instances': []}
     if 'dask' in pcfg:
         pobj = DaskProfile(pcfg)
+        pobj.validate()
         create_dask_cluster(clname, pobj, ec2, clinfo)
     else:
         pobj = Profile(pcfg)
+        pobj.validate()
 
-    pobj.validate()
     if 'webbrowser' in pcfg:
         clinfo['webbrowser'] = pcfg['webbrowser']
 
