@@ -596,11 +596,11 @@ def setup_git(pobj, user, private_key, public_ip, nb_workdir, clinfo):
     cmd += "git config --global user.email '{}'".format(pobj.nb_git.email)
     send_instance_cmd(user, private_key, public_ip, cmd)
 
-    # 클론 (작업폴더에)
+    # 클론 (작업 디렉토리에)
     cmd = git_clone_cmd(pobj.nb_git, nb_workdir)
     send_instance_cmd(user, private_key, public_ip, cmd, False)
     gcdir = pobj.nb_git.repository.split('/')[-1].replace('.git', '')
-    clinfo['git_cloned_dir'] = os.path.join(nb_workdir, gcdir)
+    clinfo['git_cloned_dir'] = "{}/{}".format(nb_workdir, gcdir)
 
 
 def start_dask_cluster(clinfo):

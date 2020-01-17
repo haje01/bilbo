@@ -12,6 +12,7 @@ bilbo (빌보) 는 AWS 상에서 파이썬 데이터 엔지니어링/과학용 �
 bilbo 는 Linux, macOS, Windows 에서 사용 가능하며, Python 3.5 이상 버전을 필요로 한다. 또한 AWS 를 기반으로 하기에, 유저는 AWS 계정이 있고 기본적인 대쉬보드 사용이 가능한 것으로 가정하겠다.
 
 ---
+- [bilbo](#bilbo)
   - [준비 작업](#%ec%a4%80%eb%b9%84-%ec%9e%91%ec%97%85)
     - [bilbo 설치](#bilbo-%ec%84%a4%ec%b9%98)
     - [AWS 환경 준비](#aws-%ed%99%98%ea%b2%bd-%ec%a4%80%eb%b9%84)
@@ -32,10 +33,11 @@ bilbo 는 Linux, macOS, Windows 에서 사용 가능하며, Python 3.5 이상 �
     - [활용 팁](#%ed%99%9c%ec%9a%a9-%ed%8c%81)
       - [작업 폴더](#%ec%9e%91%ec%97%85-%ed%8f%b4%eb%8d%94)
       - [Git 저장소에서 코드 받기](#git-%ec%a0%80%ec%9e%a5%ec%86%8c%ec%97%90%ec%84%9c-%ec%bd%94%eb%93%9c-%eb%b0%9b%ea%b8%b0)
+      - [태그 붙이기](#%ed%83%9c%ea%b7%b8-%eb%b6%99%ec%9d%b4%ea%b8%b0)
       - [클러스터 재시작](#%ed%81%b4%eb%9f%ac%ec%8a%a4%ed%84%b0-%ec%9e%ac%ec%8b%9c%ec%9e%91)
       - [워커 설정](#%ec%9b%8c%ec%bb%a4-%ec%84%a4%ec%a0%95)
+      - [bilbo 의 제거](#bilbo-%ec%9d%98-%ec%a0%9c%ea%b1%b0)
 ---
-
 
 ## 준비 작업
 
@@ -78,20 +80,20 @@ bilbo 는 Linux, macOS, Windows 에서 사용 가능하며, Python 3.5 이상 �
 
     0.0.1
 
-bilbo 를 최초로 실행하면 설치된 OS의 유저 홈 디렉토리 아래에 `.bilbo` 라는 디렉토리가 생성되는데, 이것을 **빌보 홈 디렉토리**로 부르겠다. OS 별 위치는 다음과 같다.
+bilbo 를 최초로 실행하면 설치된 OS의 유저 홈 디렉토리 아래에 `.bilbo` 라는 디렉토리가 생성되는데, 이것을 **bilbo 홈 디렉토리**로 부르겠다. OS 별 위치는 다음과 같다.
 
 * Linux - `/home/<UserName>/.bilbo`
 * macOS - `/Users/<UserName>/.bilbo`
 * Windows - `C:\Users\<UserName>\.bilbo`
 
-빌보 홈 디렉토리는 편의상 `~/.bilbo` 로 칭하겠다. 참고로, 이 안에는 다음과 같은 하위 디렉토리가 있다.
+bilbo 홈 디렉토리는 편의상 `~/.bilbo` 로 칭하겠다. 참고로, 이 안에는 다음과 같은 하위 디렉토리가 있다.
 
     ~/.bilbo
         clusters/  # 생성된 클러스터 정보
         logs/      # 로그 디렉토리
         profiles/  # 프로파일 디렉토리
 
-> 주의 : 빌보 홈 디렉토리에는 설정 내용에 따라 민감한 내용이 들어갈 수 있으니 유출되지 않도록 조심하자!
+> 주의 : bilbo 홈 디렉토리에는 설정 내용에 따라 민감한 내용이 들어갈 수 있으니 유출되지 않도록 조심하자!
 
 ### AWS 환경 준비
 
@@ -129,7 +131,7 @@ AWS EC2 인스턴스를 만들고 관리하기 위해 아래의 준비가 필요
 
 #### Packer 설정 파일 만들기
 
-Packer의 설정파일은 `.json` 형식으로 기술한다. 적당한 이미지 생성용 디렉토리에 아래 내용을 `my-image.json`으로 저장한다.
+Packer의 설정파일은 `.json` 형식으로 기술한다. 적당한 이미지 생성용 디렉토리에 아래 내용을 `bilbo-image.json`으로 저장한다.
 
 ```json
 {
@@ -142,22 +144,15 @@ Packer의 설정파일은 `.json` 형식으로 기술한다. 적당한 이미지
         {
             "type": "amazon-ebs",
             "access_key": "{{user `aws_access_key`}}",
-            "ami_name": "my-image",
+            "ami_name": "bilbo-image",
             "source_ami": "ami-099a57eaf71294a34",
-            "instance_type": "t3.micro",
+            "instance_type": "t3.medium",
             "region": "{{user `region`}}",
             "secret_key": "{{user `aws_secret_key`}}",
             "ssh_username": "ubuntu"
         }
     ],
     "provisioners": [
-        {
-            "type": "shell",
-            "inline": [
-                "sleep 60",
-                "sudo apt-get update"
-            ]
-        },
         {
             "type": "shell",
             "script": "setup.sh"
@@ -167,19 +162,23 @@ Packer의 설정파일은 `.json` 형식으로 기술한다. 적당한 이미지
 ```
 
 * ``{{env `AWS_ACCESS_KEY_ID`}}`` 는 앞에서 언급한 환경 변수 `AWS_ACCESS_KEY_ID` 를 읽어오는 부분이다.
-* `instance-type` 은 이미지를 만들기 위한 VM 의 타입이기에 `t3.micro`로 충분하다.
+* `instance-type` 은 이미지를 만들기 위한 VM 의 타입이다. Jupyter Lab 익스텐션 설치시 메모리가 꽤 필요하기에,  `t3.medium` 정도로 해준다.
 * `provisioners` 아래에 설치 스크립트가 온다.
-* 첫 번째 쉘 스크립트에 `sleep 60`은 OS 의 초기 작업이 끝나기를 기다리기 위한 것이다.
-
-필요한 패키지의 설치는 `setup.sh` 에 별도로 기술한다.
+* 필요한 패키지의 설치는 `setup.sh` 에 별도로 기술한다.
 
 #### 설치 스크립트
 
 아래의 내용을 참고하여, 필요에 맞게 변경해 `setup.sh` 로 저장한다.
 
 ```sh
-export DEBIAN_FRONTEND noninteractive
-sudo apt-get install -y graphviz git nodejs
+# Common setup
+sudo apt-get remove -y unattended-upgrades
+sudo locale-gen ko_KR.UTF-8
+sudo apt-get update
+
+# Custom installs
+curl -sL https://deb.nodesource.com/setup_12.x | sudo -E bash -
+sudo DEBIAN_FRONTEND=noninteractive apt-get install -y nodejs
 
 pip install blosc
 pip install lz4
@@ -187,10 +186,10 @@ pip install python-snappy
 pip install 'dask>=2.9.0'
 pip install 'numpy>=1.17.3'
 pip install 'pandas>=0.25.'
-pip install jupyter
-pip install jupyterlab
+pip install 'jupyterlab>=0.35.0'
 jupyter labextension install @jupyterlab/toc
 pip install 'dask-labextension>=1.0.3'
+jupyter labextension install dask-labextension
 pip install graphviz
 pip install pyarrow
 pip install 's3fs>=0.4.0'
@@ -203,14 +202,14 @@ pip install 'fsspec>=0.6.2'
 
 이제 아래의 명령으로 AMI 를 만든다.
 
-    $ packer build my-image.json
+    $ packer build bilbo-image.json
 
 다음과 같은 메시지가 출력되면서 이미지가 만들어진다.
 
 ```
 amazon-ebs output will be in this color.
 
-==> amazon-ebs: Prevalidating AMI Name: my-image
+==> amazon-ebs: Prevalidating AMI Name: bilbo-image
     amazon-ebs: Found Image ID: ami-099a57eaf71294a34
 ==> amazon-ebs: Creating temporary keypair: packer_5df1eac8-747c-6001-e73c-69e4ac04a837
 ==> amazon-ebs: Creating temporary security group for this instance: packer_5df1eac9-a29b-6906-c99d-5b7a96ceb707
@@ -240,9 +239,9 @@ ap-northeast-2: ami-043c907754421d916
 
 성공하면 최종적으로 `ami-043c907754421d916` 와 같은 AMI ID 가 출력된다. 이 값을 기록해 두고, 이후 bilbo 에서 사용한다.
 
-이미지 만들기에 사용된 인스턴스( `t3.micro`) 는 자동으로 삭제되며, 생성된 이미지는 AWS EC2 대쉬보드 왼쪽 `AMI` 메뉴에서 AMI ID 또는 이름으로 확인할 수 있다.
+이미지 만들기에 사용된 인스턴스는 자동으로 삭제되며, 생성된 이미지는 AWS EC2 대쉬보드 왼쪽 `AMI` 메뉴에서 AMI ID 또는 이름으로 확인할 수 있다.
 
-위 과정에서 생성된 Packer 설정 파일 (`my-image.json`) 및 설치 스크립트(`setup.sh`) 를 코드 저장소에 추가하여 관리하면 될 것이다.
+위 과정에서 사용한 Packer 설정 파일 (`bilbo-image.json`) 및 설치 스크립트(`setup.sh`) 를 코드 저장소에 추가하여 관리하면 될 것이다.
 
 ### EC2 보안 그룹 생성하기
 
@@ -427,7 +426,7 @@ AWS EC2 대쉬보드에서도 생성된 노트북 인스턴스를 볼 수 있다
 
 ![노트북](/assets/2020-01-08-15-58-31.png)
 
-> 만약 별도의 웹브라우저를 사용하고 싶다면, 프로파일에 `"webbrowser" : "C:\\Program Files (x86)\\Google\\Chrome\\Applications\\chrome.exe"` 식으로 경로를 명시하면 된다.
+> 만약, 별도의 웹브라우저를 사용하고 싶다면, 프로파일에 `"webbrowser" : "C:\\Program Files (x86)\\Google\\Chrome\\Applications\\chrome.exe"` 식으로 경로를 명시하면 된다.
 
 
 ### 클러스터 제거하기
@@ -633,6 +632,20 @@ Are you sure to destroy this cluster? (y/n):
 
 여기에서 y 또는 n 을 입력하여 제거 여부를 결정할 수 있다.
 
+
+#### 태그 붙이기
+
+여러 사람이 같은 AWS 계정으로 다양한 클러스터를 띄우면 누가, 어떤 목적으로 각 클러스터를 사용 중인지 분명이 할 필요가 있습니다. `instance` 안에 `tags` 요소를 추가하면 각 인스턴스에 다양한 추가 정보를 부여 수 있습니다.
+
+```json
+    "instance": {
+        "tags": [
+            ["Owner", "haje01@webzen.com"],
+            ["Service", "MyService"]
+        ]
+    }
+```
+
 #### 클러스터 재시작
 
 Dask를 사용하다 보면 스케쥴러와 워커 메모리 부족이나, 동작 불안정 등의 이유로 클러스터 재시작이 필요할 수 있다. 이때는 아래와 같이 한다.
@@ -682,3 +695,13 @@ Dask 대쉬보드에서 확인해보면,
 ```
 
 위의 경우, 스레드를 4 개를 가진 워커 프로세스 하나가 인스턴스의 메모리를 다 사용하게 된다.
+
+#### bilbo 의 제거
+
+더 이상 bilbo 를 사용하지 않게 된 경우, 다음과 같이 제거할 수 있다.
+
+* `pip uninstall bilbo` 으로 패키지 언인스톨
+* git 으로 클론한 bilbo 코드 디렉토리를 제거
+* bilbo 홈 디렉토리 `~/.bilbo` 를 제거
+
+특히, bilbo 홈 디렉토리에는 사용한 AWS 계정 정보가 남아있으니 꼭 지워주도록 하자.
