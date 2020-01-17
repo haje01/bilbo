@@ -106,7 +106,7 @@ AWS EC2 인스턴스를 만들고 관리하기 위해 아래의 준비가 필요
 
 키페어는 한 번이라도 EC2 인스턴스를 만들었다면 준비되어 있을 것이다. 아니라면 [관련 글](https://victorydntmd.tistory.com/61)을 참고하여 준비하자.
 
-사용 가능한 IAM 유저가 없다면, [이 글](https://www.44bits.io/ko/post/publishing_and_managing_aws_user_access_key) 을 참고하여 만들자. 이 과정에서 얻은 Access / Secret 키를 기록해두자.
+사용 가능한 IAM 유저가 없다면, [이 글](https://www.44bits.io/ko/post/publishing_and_managing_aws_user_access_key) 을 참고하여 만들자. 이 과정에서 얻은 Access / Secret 키를 기록해 두자.
 
 환경변수는 다음과 같은 세 가지를 사용한다:
 
@@ -114,7 +114,7 @@ AWS EC2 인스턴스를 만들고 관리하기 위해 아래의 준비가 필요
 * `AWS_SECRET_ACCESS_KEY` - IAM 유저의 Secret 키
 * `AWS_DEFAULT_REGION` - 기본 AWS 리전 (한국은 `ap-northeast-2`)
 
-위의 환경변수가 명령창(터미널)을 띄울 때마다 활성화되도록 로컬 OS에 맞게 설정해 두자. (AWS CLI 툴을 설치해둔 경우면 별도 환경변수 설정없이 사용 가능)
+위의 환경변수가 명령창(터미널)을 띄울 때마다 활성화되도록 로컬 OS에 맞게 설정하자 (AWS CLI 툴을 설치 및 설정해둔 경우는 환경변수가 필요없다).
 
 ### AMI (Amazon Machine Image) 만들기
 
@@ -666,6 +666,10 @@ Are you sure to destroy this cluster? (y/n):
 ```
 
 각 태그 요소는 리스트로 첫 번째가 Key, 두 번째가 Value 에 해당한다.
+
+AWS 대쉬보드에서 인스턴스의 태그를 확인 가능하다.
+
+![태그](assets/2020-01-17-19-19-32.png)
 
 #### 클러스터 재시작
 
