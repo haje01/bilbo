@@ -703,7 +703,7 @@ Dask 대쉬보드에서 확인해보면,
 
 더 이상 bilbo 를 사용하지 않게 된 경우, 다음과 같이 제거할 수 있다.
 
-* `pip uninstall bilbo` 으로 패키지 언인스톨
+* `pip uninstall bilbo` 로 패키지 언인스톨
 * git 으로 클론한 bilbo 코드 디렉토리를 제거
 * bilbo 홈 디렉토리 `~/.bilbo` 를 제거
 
