@@ -114,15 +114,17 @@ def read_profile(profile, params=None):
     validate_by_schema(pcfg)
 
     # Override 패러미터가 있으면 적용
-    override_cfg_by_params(pcfg, params)
-    # 덮어쓴 내용 검증
-    try:
-        validate_by_schema(pcfg)
-    except jsonschema.exceptions.ValidationError:
-        msgs = ["There may be an incorrect parameter(s  ):"]
-        for param in params:
-            msgs.append('  {}'.format(param))
-        raise RuntimeError('\n'.join(msgs))
+    if params is not None:
+        override_cfg_by_params(pcfg, params)
+        # 덮어쓴 내용 검증
+        try:
+            validate_by_schema(pcfg)
+        except jsonschema.exceptions.ValidationError:
+            msgs = ["There may be an incorrect parameter(s  ):"]
+            for param in params:
+                msgs.append('  {}'.format(param))
+            raise RuntimeError('\n'.join(msgs))
+
     return pcfg
 
 
