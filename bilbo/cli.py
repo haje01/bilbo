@@ -26,18 +26,26 @@ def main(ctx, verbose):
 @click.option('-n', '--name', help="Cluster name (Default: profile name)")
 @click.option('-p', '--param', multiple=True,
               help="Override profile by parameter")
-def create(profile, name, param):
+@click.option('-o', '--open', 'open_nb', is_flag=True, help="Open remote "
+              "notebook when creation is complete")
+def create(profile, name, param, open_nb):
     """클러스터 생성."""
     check_profile(profile)
     pobj, clinfo = create_cluster(profile, name, param)
+    remote_nb = 'notebook' in clinfo
     if name is None:
         name = clinfo['name']
-    if 'notebook' in clinfo:
+    if remote_nb:
         start_notebook(pobj, clinfo)
     if 'type' in clinfo:
         start_cluster(clinfo)
     save_cluster_info(name, clinfo)
     show_cluster(name)
+    if open_nb:
+        if remote_nb:
+            open_notebook(name)
+        else:
+            print("There is no remote notebook in the cluster.")
 
 
 @main.command(help="Show create cluster plan.")

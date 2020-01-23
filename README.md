@@ -426,7 +426,7 @@ AWS EC2 대쉬보드에서도 생성된 노트북 인스턴스를 볼 수 있다
 
 > 참고: 클러스터가 생성되면 `~/.bilbo/clusters` 아래에 클러스터 정보 파일이 생성되는데, 위 내용은 이 파일의 것과 같다.
 
-위의 `notebook_url` 요소에서 Jupyter 노트북의 토큰이 포함된 URL이 보인다. 아래와 같이 입력하면 이곳으로 편리하게 접속할 수 있다.
+위의 `notebook_url` 요소에서 Jupyter 노트북의 토큰이 포함된 URL이 보인다. 이것을 복사하여 웹브라우저에 붙여넣어도 되겠으나, 아래와 같은 명령으로 편리하게 접속할 수 있다.
 
     $ bilbo notebook test
 
@@ -436,6 +436,9 @@ AWS EC2 대쉬보드에서도 생성된 노트북 인스턴스를 볼 수 있다
 
 > 만약, 별도의 웹브라우저를 사용하고 싶다면, 프로파일에 `"webbrowser" : "C:\\Program Files (x86)\\Google\\Chrome\\Applications\\chrome.exe"` 식으로 경로를 명시하면 된다.
 
+> 클러스터 생성후, 바로 노트북을 띄우고 싶은 경우 `create` 에 `-o` 옵션을 주면된다.
+>
+>    $ bilbo create test.json -o
 
 ### 클러스터 제거하기
 
