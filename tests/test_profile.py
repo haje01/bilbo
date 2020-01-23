@@ -1,7 +1,7 @@
 """프로파일 테스트."""
 import  pytest
 
-from bilbo.profile import Profile, DaskProfile
+from bilbo.profile import Profile, DaskProfile, override_cfg_by_params
 
 
 def test_dask_basic():
@@ -225,3 +225,42 @@ def test_validate():
     with pytest.raises(RuntimeError, match=r".*ssh.*"):
         pro.validate()
 
+
+def test_params():
+    """CLI 패러미터로 프로파일 덮어쓰기 테스트."""
+    cfg = {
+        "instance": {
+            'ami': 'ami-000',
+            "ec2type": "base-ec2type",
+            "security_group": "sg-000",
+            "keyname": "base-key",
+            "tags": [
+                ["Owner", "BaseOwner"],
+                ["Service", "BaseService"]
+            ]
+        },
+        "notebook": {
+            "instance": {
+                "ec2type": "m5.xlarge"
+            }
+        }
+    }
+    with pytest.raises(RuntimeError, match=r"Parameter syntax.*"):
+        params = ['instance.ec2type param-ec2type']
+        override_cfg_by_params(cfg, params)
+
+    with pytest.raises(RuntimeError, match=r"Parameter syntax.*"):
+        params = ['instance.ec2type = param-ec2type']
+        override_cfg_by_params(cfg, params)
+
+    with pytest.raises(RuntimeError, match=r"Illegal list index.*"):
+        params = ['instance.tags.a.b=ParamOwner']
+        override_cfg_by_params(cfg, params)
+
+    params = ['instance.ec2type=param-ec2type',
+              'instance.tags.0.1=ParamOwner',
+              'dask.worker.count=2']
+    override_cfg_by_params(cfg, params)
+    assert cfg['instance']['ec2type'] == 'param-ec2type'
+    assert cfg['instance']['tags'][0][1] == 'ParamOwner'
+    assert cfg['dask']['worker']['count'] == 2

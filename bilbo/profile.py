@@ -1,6 +1,7 @@
 """프로파일 모듈."""
 import os
 import json
+import re
 from copy import copy
 
 import boto3
@@ -9,6 +10,7 @@ import jsonschema
 from bilbo.util import error, prof_dir, mod_dir, info
 
 DEFAULT_WORKER = 1
+PARAM_PTRN = re.compile(r'^([\w\.]+)=(.+)?$')
 
 
 def get_latest_schema():
@@ -54,7 +56,53 @@ def validate_by_schema(pcfg):
     jsonschema.validate(pcfg, schema)
 
 
-def read_profile(profile):
+def override_cfg_by_params(cfg, params):
+    """CLI 패러미터로 프로파일 설정을 덮어씀."""
+
+    def get_list_index(s):
+        try:
+            return int(s)
+        except ValueError:
+            raise RuntimeError("Illegal list index: {}".format(s))
+
+
+    def get_typed_value(s):
+        try:
+            return int(s)
+        except ValueError:
+            return s
+
+    for param in params:
+        match = re.search(PARAM_PTRN, param)
+        if match is None:
+            raise RuntimeError("Parameter syntax error: '{}'".format(param))
+        key, value = match.groups()
+        value = get_typed_value(value)
+
+        kelms = key.split('.')
+        target = cfg
+
+        # 대상 dict 찾기
+        for ke in kelms[:-1]:
+            if ke in target:
+                target = target[ke]
+            elif type(target) is list:
+                idx = get_list_index(ke)
+                target = target[idx]
+            else:
+                target[ke] = {}
+                target = target[ke]
+
+        # 값을 쓰기
+        ke = kelms[-1]
+        if type(target) is list:
+            idx = get_list_index(ke)
+            target[idx] = value
+        else:
+            target[ke] = value
+
+
+def read_profile(profile, params=None):
     """프로파일 읽기."""
     info("read_profile {}".format(profile))
     path = check_profile(profile)
@@ -62,7 +110,19 @@ def read_profile(profile):
         body = f.read()
         pcfg = json.loads(body)
 
+    # 프로파일 내용 검증
     validate_by_schema(pcfg)
+
+    # Override 패러미터가 있으면 적용
+    override_cfg_by_params(pcfg, params)
+    # 덮어쓴 내용 검증
+    try:
+        validate_by_schema(pcfg)
+    except jsonschema.exceptions.ValidationError:
+        msgs = ["There may be an incorrect parameter(s  ):"]
+        for param in params:
+            msgs.append('  {}'.format(param))
+        raise RuntimeError('\n'.join(msgs))
     return pcfg
 
 

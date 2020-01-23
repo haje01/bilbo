@@ -229,7 +229,7 @@ def check_dup_cluster(clname):
         raise NameError("Cluster '{}' already exist.".format(clname))
 
 
-def create_cluster(profile, clname):
+def create_cluster(profile, clname, params):
     """클러스터 생성."""
 
     if clname is None:
@@ -237,7 +237,7 @@ def create_cluster(profile, clname):
 
     check_dup_cluster(clname)
 
-    pcfg = read_profile(profile)
+    pcfg = read_profile(profile, params)
     ec2 = boto3.resource('ec2')
 
     # 클러스터 생성

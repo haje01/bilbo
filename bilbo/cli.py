@@ -24,10 +24,12 @@ def main(ctx, verbose):
 @main.command(help="Create cluster.")
 @click.argument('PROFILE')
 @click.option('-n', '--name', help="Cluster name (Default: profile name)")
-def create(profile, name):
+@click.option('-p', '--param', multiple=True,
+              help="Override profile by parameter")
+def create(profile, name, param):
     """클러스터 생성."""
     check_profile(profile)
-    pobj, clinfo = create_cluster(profile, name)
+    pobj, clinfo = create_cluster(profile, name, param)
     if name is None:
         name = clinfo['name']
     start_cluster(pobj, clinfo)
