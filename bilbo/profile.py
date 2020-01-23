@@ -297,9 +297,9 @@ class DaskProfile(Profile):
         self.wrk_inst.validate()
 
 
-def show_plan(profile, clname):
+def show_plan(profile, clname, params):
     """실행 계획 표시"""
-    pcfg = read_profile(profile)
+    pcfg = read_profile(profile, params)
     if clname is None:
         clname = '.'.join(profile.lower().split('.')[0:-1])
     print("\nCluster name: {}\n".format(clname))

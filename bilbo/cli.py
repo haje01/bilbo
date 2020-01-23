@@ -40,9 +40,11 @@ def create(profile, name, param):
 @main.command(help="Show create cluster plan.")
 @click.argument('PROFILE')
 @click.option('-n', '--name', help="Cluster name")
-def plan(profile, name):
+@click.option('-p', '--param', multiple=True,
+              help="Override profile by parameter")
+def plan(profile, name, param):
     """클러스터 생성 계획 표시."""
-    show_plan(profile, name)
+    show_plan(profile, name, param)
 
 
 @main.command(help="List active clusters.")
