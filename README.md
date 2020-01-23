@@ -289,6 +289,7 @@ bilbo 의 프로파일은 `.json` 형식으로 기술하는데, 이를 위한 [J
 ```json
 {
     "$schema": "https://raw.githubusercontent.com/haje01/bilbo/master/schemas/profile-01.schema.json",
+    "description": "최소 테스트",
     "instance": {
         "ami": "ami-0f49fa254e1806b72",
         "security_group": "sg-0bc538e0a7c089b4d",
@@ -301,6 +302,7 @@ bilbo 의 프로파일은 `.json` 형식으로 기술하는데, 이를 위한 [J
 ```
 
 * `$schema` 로 bilbo 프로파일의 JSON 스키마를 지정한다 (옵션).
+* `description`: 이 프로파일의 용도를 설명
 * `instance` 요소에 클러스터에서 사용할 공통 장비의 사양을 명시한다.
   * `ami` - 만들어 둔 AMI 의 ID
   * `security_group` - 만들어 둔 보안 그룹의 ID
@@ -326,6 +328,7 @@ bilbo 는 분석을 위한 1) 노트북이 사용자의 로컬 머신에 있을 
 ```json
 {
     "$schema": "https://raw.githubusercontent.com/haje01/bilbo/master/schemas/profile-01.schema.json",
+    "description": "클라우드 노트북 테스트",
     "instance": {
         "ami": "ami-0f49fa254e1806b72",
         "security_group": "sg-0bc538e0a7c089b4d",
@@ -454,6 +457,7 @@ AWS EC2 대쉬보드에서도 생성된 노트북 인스턴스를 볼 수 있다
 ```json
 {
     "$schema": "https://raw.githubusercontent.com/haje01/bilbo/master/schemas/profile-01.schema.json",
+    "description": "로컬 노트북 + 클라우드 Dask 클러스터 테스트",
     "instance": {
         "ami": "ami-0f49fa254e1806b72",
         "security_group": "sg-0bc538e0a7c089b4d",
@@ -523,6 +527,7 @@ AWS EC2 대쉬보드에서도 생성된 인스턴스를 확인할 수 있다. �
 ```json
 {
     "$schema": "https://raw.githubusercontent.com/haje01/bilbo/master/schemas/profile-01.schema.json",
+    "description": "클라우드 노트북 + 클라우드 Dask 클러스트 테스트",
     "instance": {
         "ami": "ami-0f49fa254e1806b72",
         "security_group": "sg-0bc538e0a7c089b4d",

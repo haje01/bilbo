@@ -125,6 +125,10 @@
             "type": "string",
             "description": "Schema URI"
         },
+        "description": {
+            "description": "Describe profile usage",
+            "type": "string"
+        },
         "instance_prefix": {
             "description": "Instance name prefix",
             "type": "string"

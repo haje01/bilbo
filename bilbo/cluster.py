@@ -29,8 +29,10 @@ def cluster_info_exists(clname):
     return os.path.isfile(path)
 
 
-def _build_tag_spec(name, _tags):
+def _build_tag_spec(name, desc, _tags):
     tags = [{'Key': 'Name', 'Value': name}]
+    if desc is not None:
+        tags.append({'Key': 'Description', 'Value': desc})
 
     if _tags is not None:
         for _tag in _tags:
@@ -97,7 +99,7 @@ def create_dask_cluster(clname, pobj, ec2, clinfo):
 
     # create scheduler
     scd_name = pobj.scd_inst.get_name(clname)
-    scd_tag_spec = _build_tag_spec(scd_name, pobj.scd_inst.tags)
+    scd_tag_spec = _build_tag_spec(scd_name, pobj.desc, pobj.scd_inst.tags)
     ins = create_ec2_instances(ec2, pobj.scd_inst, 1, scd_tag_spec)
     scd = ins[0]
     clinfo['instances'].append(scd.instance_id)
@@ -105,7 +107,7 @@ def create_dask_cluster(clname, pobj, ec2, clinfo):
 
     # create workers
     wrk_name = pobj.wrk_inst.get_name(clname)
-    wrk_tag_spec = _build_tag_spec(wrk_name, pobj.wrk_inst.tags)
+    wrk_tag_spec = _build_tag_spec(wrk_name, pobj.desc, pobj.wrk_inst.tags)
     ins = create_ec2_instances(ec2, pobj.wrk_inst, pobj.wrk_cnt, wrk_tag_spec)
     inst = pobj.wrk_inst
     winfo = get_type_instance_info(inst)
@@ -203,7 +205,7 @@ def create_notebook(clname, pobj, ec2, clinfo):
     """노트북 생성."""
     critical("Create notebook.")
     nb_name = pobj.nb_inst.get_name(clname)
-    nb_tag_spec = _build_tag_spec(nb_name, pobj.nb_inst.tags)
+    nb_tag_spec = _build_tag_spec(nb_name, pobj.desc, pobj.nb_inst.tags)
     ins = ec2.create_instances(ImageId=pobj.nb_inst.ami,
                                InstanceType=pobj.nb_inst.ec2type,
                                MinCount=1, MaxCount=1,

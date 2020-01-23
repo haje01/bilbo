@@ -167,6 +167,7 @@ class Profile:
         validate_by_schema(pcfg)
 
         # 공통 정보
+        self.desc = pcfg.get('description')
         self.inst_prefix = pcfg.get("instance_prefix")
         self.inst = None
         if 'instance' in pcfg:

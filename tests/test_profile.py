@@ -6,6 +6,7 @@ from bilbo.profile import Profile, DaskProfile
 
 def test_dask_basic():
     cfg = {
+        "description": "Description",
         "instance": {
             'ami': 'ami-000',
             "ec2type": "base-ec2type",
@@ -20,6 +21,7 @@ def test_dask_basic():
         "dask": {}
     }
     pro = DaskProfile(cfg)
+    assert pro.desc == 'Description'
     assert pro.inst.ami == 'ami-000'
     assert pro.inst.ec2type == 'base-ec2type'
     assert pro.inst.keyname == 'base-key'
