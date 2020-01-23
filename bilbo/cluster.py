@@ -493,16 +493,13 @@ def dask_worker_options(winfo, memory):
     return nproc, nthread, memory // nproc
 
 
-def start_cluster(pobj, clinfo):
-    """클러스터 노트북, 마스터 & 워커를 시작."""
-    if 'notebook' in clinfo:
-        start_notebook(pobj, clinfo)
-
-    if 'type' in clinfo:
-        if clinfo['type'] == 'dask':
-            start_dask_cluster(clinfo)
-        else:
-            raise NotImplementedError()
+def start_cluster(clinfo):
+    """클러스터 마스터 & 워커를 시작."""
+    assert 'type' in clinfo
+    if clinfo['type'] == 'dask':
+        start_dask_cluster(clinfo)
+    else:
+        raise NotImplementedError()
 
 
 def git_clone_cmd(gobj, workdir):
@@ -687,9 +684,10 @@ def stop_cluster(clname):
         cmd = "screen -X -S 'bilbo' quit"
         send_instance_cmd(user, private_key, public_ip, cmd)
 
-        for wrk in clinfo['worker']:
+        worker = clinfo['worker']
+        user, private_key = worker['ssh_user'], worker['ssh_private_key']
+        for wrk in worker['instances']:
             # 워커 중지
-            user, private_key = wrk['ssh_user'], wrk['ssh_private_key']
             public_ip = wrk['public_ip']
             cmd = "screen -X -S 'bilbo' quit"
             send_instance_cmd(user, private_key, public_ip, cmd)

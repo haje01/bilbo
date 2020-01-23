@@ -9,7 +9,7 @@ from bilbo.util import set_log_verbosity, iter_profiles
 from bilbo.cluster import create_cluster, show_cluster, \
     destroy_cluster, show_all_cluster, send_instance_cmd, \
     find_cluster_instance_by_public_ip, stop_cluster, start_cluster, \
-    open_dashboard, save_cluster_info, open_notebook
+    open_dashboard, save_cluster_info, open_notebook, start_notebook
 from bilbo.profile import check_profile, show_plan
 
 
@@ -32,7 +32,10 @@ def create(profile, name, param):
     pobj, clinfo = create_cluster(profile, name, param)
     if name is None:
         name = clinfo['name']
-    start_cluster(pobj, clinfo)
+    if 'notebook' in clinfo:
+        start_notebook(pobj, clinfo)
+    if 'type' in clinfo:
+        start_cluster(clinfo)
     save_cluster_info(name, clinfo)
     show_cluster(name)
 
