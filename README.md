@@ -30,6 +30,7 @@ bilbo 는 Linux, macOS, Windows 에서 사용 가능하며, Python 3.5 이상 �
   - [Dask 클러스터](#dask-%ed%81%b4%eb%9f%ac%ec%8a%a4%ed%84%b0)
     - [로컬 노트북에서 클라우드 Dask 이용하기](#%eb%a1%9c%ec%bb%ac-%eb%85%b8%ed%8a%b8%eb%b6%81%ec%97%90%ec%84%9c-%ed%81%b4%eb%9d%bc%ec%9a%b0%eb%93%9c-dask-%ec%9d%b4%ec%9a%a9%ed%95%98%ea%b8%b0)
     - [클라우드 노트북에서 클라우드 Dask 이용하기](#%ed%81%b4%eb%9d%bc%ec%9a%b0%eb%93%9c-%eb%85%b8%ed%8a%b8%eb%b6%81%ec%97%90%ec%84%9c-%ed%81%b4%eb%9d%bc%ec%9a%b0%eb%93%9c-dask-%ec%9d%b4%ec%9a%a9%ed%95%98%ea%b8%b0)
+    - [워커 설정](#%ec%9b%8c%ec%bb%a4-%ec%84%a4%ec%a0%95)
   - [활용하기](#%ed%99%9c%ec%9a%a9%ed%95%98%ea%b8%b0)
     - [작업 폴더](#%ec%9e%91%ec%97%85-%ed%8f%b4%eb%8d%94)
     - [Git 저장소에서 코드 받기](#git-%ec%a0%80%ec%9e%a5%ec%86%8c%ec%97%90%ec%84%9c-%ec%bd%94%eb%93%9c-%eb%b0%9b%ea%b8%b0)
@@ -37,7 +38,6 @@ bilbo 는 Linux, macOS, Windows 에서 사용 가능하며, Python 3.5 이상 �
     - [태그 붙이기](#%ed%83%9c%ea%b7%b8-%eb%b6%99%ec%9d%b4%ea%b8%b0)
     - [CLI 패러미터로 프로파일 값 덮어쓰기](#cli-%ed%8c%a8%eb%9f%ac%eb%af%b8%ed%84%b0%eb%a1%9c-%ed%94%84%eb%a1%9c%ed%8c%8c%ec%9d%bc-%ea%b0%92-%eb%8d%ae%ec%96%b4%ec%93%b0%ea%b8%b0)
     - [클러스터 재시작](#%ed%81%b4%eb%9f%ac%ec%8a%a4%ed%84%b0-%ec%9e%ac%ec%8b%9c%ec%9e%91)
-    - [워커 설정](#%ec%9b%8c%ec%bb%a4-%ec%84%a4%ec%a0%95)
     - [bilbo 의 업데이트와 제거](#bilbo-%ec%9d%98-%ec%97%85%eb%8d%b0%ec%9d%b4%ed%8a%b8%ec%99%80-%ec%a0%9c%ea%b1%b0)
 ---
 
@@ -593,6 +593,51 @@ Dask 클라이언트를 인자 없이 생성한다.
 
 ![주소 없이 Dask 클라이언트 사용](assets/2020-01-09-10-36-48.png)
 
+### 워커 설정
+
+Dask 명령어로 직접 워커를 띄울 때, 아래와 같이 옵션으로 몇 개의 프로세스와 스레드를 사용할지와, 메모리 제약을 줄 수 있다.
+
+    $ dask-worker --nprocs 1 --nthreads 2 --memory-limit 1011179520
+
+bilbo 에서는 이 옵션을 ec2 인스턴스의 CPU 코어 수와 코어당 스레드 수 스펙을 참고하여 자동으로 설정해준다. 예를 들어 코어가 4 개, 코어당 스레드 수가 2, 메모리가 16 GiB 인 `m5.xlarge` 로 워커 하나를 만든다면,
+
+```json
+    "dask": {
+        "worker": {
+            "instance": {
+                "ec2type": "m5.xlarge"
+            }
+        }
+    }
+```
+
+`nproces`는 코어 수와 같게, `nthreads` 는 코어 당 스레드 수와 같게, `memory-limit`는 전체 메모리 / 코어 수로 설정된다. 즉 Dask 명령어로 한다면 다음과 같다.
+
+    $ dask-worker --nprocs 4 --nthreads 2 --memory-limit 4044718080
+
+Dask 대쉬보드에서 확인해보면,
+
+![m5.xlarge 워커](/assets/2020-01-09-16-26-29.png)
+
+2 개 스레드를 가진 4 개의 워커 프로세스들이, 각각 4 GiB 씩 메모리를 사용하는 것을 알 수 있다.
+
+작업의 특성에 맞게 커스텀한 값을 사용해야 한다면, 아래와 같이 프로파일에서 설정할 수 있다.
+
+```json
+    "dask": {
+        "worker": {
+            "instance": {
+                "ec2type": "m5.xlarge"
+            },
+            "nproc": 1,
+            "nthread": 4
+        }
+    }
+```
+
+위의 경우, 스레드를 4 개를 가진 워커 프로세스 하나가 인스턴스의 메모리를 다 사용하게 된다.
+
+
 ## 활용하기
 
 여기에서는 활용을 위한 다양한 팁을 소개하겠다.
@@ -744,50 +789,6 @@ AWS 대쉬보드에서 인스턴스의 태그를 확인 가능하다.
 Dask를 사용하다 보면 스케쥴러와 워커 메모리 부족이나, 동작 불안정 등의 이유로 클러스터 재시작이 필요할 수 있다. 이때는 아래와 같이 한다.
 
     $ bilbo restart test-cluster
-
-### 워커 설정
-
-Dask 명령어로 직접 워커를 띄울 때, 아래와 같이 옵션으로 몇 개의 프로세스와 스레드를 사용할지와, 메모리 제약을 줄 수 있다.
-
-    $ dask-worker --nprocs 1 --nthreads 2 --memory-limit 1011179520
-
-bilbo 에서는 이 옵션을 ec2 인스턴스의 CPU 코어 수와 코어당 스레드 수 스펙을 참고하여 자동으로 설정해준다. 예를 들어 코어가 4 개, 코어당 스레드 수가 2, 메모리가 16 GiB 인 `m5.xlarge` 로 워커 하나를 만든다면,
-
-```json
-    "dask": {
-        "worker": {
-            "instance": {
-                "ec2type": "m5.xlarge"
-            }
-        }
-    }
-```
-
-`nproces`는 코어 수와 같게, `nthreads` 는 코어 당 스레드 수와 같게, `memory-limit`는 전체 메모리 / 코어 수로 설정된다. 즉 Dask 명령어로 한다면 다음과 같다.
-
-    $ dask-worker --nprocs 4 --nthreads 2 --memory-limit 4044718080
-
-Dask 대쉬보드에서 확인해보면,
-
-![m5.xlarge 워커](/assets/2020-01-09-16-26-29.png)
-
-2 개 스레드를 가진 4 개의 워커 프로세스들이, 각각 4 GiB 씩 메모리를 사용하는 것을 알 수 있다.
-
-작업의 특성에 맞게 커스텀한 값을 사용해야 한다면, 아래와 같이 프로파일에서 설정할 수 있다.
-
-```json
-    "dask": {
-        "worker": {
-            "instance": {
-                "ec2type": "m5.xlarge"
-            },
-            "nproc": 1,
-            "nthread": 4
-        }
-    }
-```
-
-위의 경우, 스레드를 4 개를 가진 워커 프로세스 하나가 인스턴스의 메모리를 다 사용하게 된다.
 
 ### bilbo 의 업데이트와 제거
 
