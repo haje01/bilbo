@@ -264,3 +264,12 @@ def test_params():
     assert cfg['instance']['ec2type'] == 'param-ec2type'
     assert cfg['instance']['tags'][0][1] == 'ParamOwner'
     assert cfg['dask']['worker']['count'] == 2
+
+    with pytest.raises(IndexError):
+        params = ['instance.tags.3.3=1']
+        override_cfg_by_params(cfg, params)
+
+    params = ['instance.3.3=1']
+    override_cfg_by_params(cfg, params)
+    import pdb; pdb.set_trace()
+    pass

@@ -120,7 +120,7 @@ def read_profile(profile, params=None):
         try:
             validate_by_schema(pcfg)
         except jsonschema.exceptions.ValidationError:
-            msgs = ["There may be an incorrect parameter(s  ):"]
+            msgs = ["There is an incorrect parameter:"]
             for param in params:
                 msgs.append('  {}'.format(param))
             raise RuntimeError('\n'.join(msgs))
@@ -333,6 +333,10 @@ def show_instance_plan(inst):
     print("    Instance Type: {}".format(inst.ec2type))
     print("    Security Group: {}".format(inst.secgroup))
     print("    Key Name: {}".format(inst.keyname))
+    if inst.tags is not None:
+        print("    Tags:")
+        for tag in inst.tags:
+            print("        {}: {}".format(tag[0], tag[1]))
 
 
 def show_dask_plan(clname, pobj):
