@@ -728,7 +728,7 @@ AWS 대쉬보드에서 인스턴스의 태그를 확인 가능하다.
 
 `-p` 를 반복적으로 사용하면, 여러 가지 변경을 한 번에 줄 수 있다.
 
-    $ bilbo create test.json -p instance.ec2type=m5.large -p instance.tags.0.1=Anonymous
+    $ bilbo create test.json -p dask.worker.count=4 -p instance.tags.0.1=Anonymous
 
 #### 클러스터 재시작
 
