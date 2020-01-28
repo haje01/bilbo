@@ -3,6 +3,7 @@ import os
 import json
 import re
 from copy import copy
+import codecs
 
 import boto3
 import jsonschema
@@ -106,7 +107,7 @@ def read_profile(profile, params=None):
     """프로파일 읽기."""
     info("read_profile {}".format(profile))
     path = check_profile(profile)
-    with open(path, 'rt') as f:
+    with codecs.open(path, 'rb', encoding='utf-8') as f:
         body = f.read()
         pcfg = json.loads(body)
 
