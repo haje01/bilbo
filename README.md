@@ -799,7 +799,9 @@ Dask를 사용하다 보면 스케쥴러와 워커 메모리 부족이나, 동�
 
 ### 원격으로 노트북 / 파이썬 파일 실행하기
 
-bilbo 로 만든 클러스터에 노트북 인스턴스가 있다면, 거기에 있는 노트북 또는 파이썬 파일을 bilbo 커맨드로 실행할 수 있으며, 매개 변수를 전달할 수도 있다. 테스트를 위해 다음과 같은 `test.ipynb` Jupyter 노트북 파일을 만들고, `parameters` 태그를 셀이 부여한다 (이를 위해 앞에서 예로든 `setup.sh` 처럼 [papermill](https://papermill.readthedocs.io/en/latest/) 과 [jupyterlab-celltags](https://github.com/jupyterlab/jupyterlab-celltags) 의 설치가 필요하다).
+bilbo 로 만든 클러스터에 노트북 인스턴스가 있다면, 거기에 있는 노트북 또는 파이썬 파일을 bilbo 커맨드로 실행할 수 있으며, 매개 변수를 전달할 수도 있다.
+
+테스트를 위해 다음과 같은 `test.ipynb` Jupyter 노트북 파일을 만들고, `parameters` 태그를 셀에 부여한다 (이를 위해 앞에서 예로든 `setup.sh` 처럼 [papermill](https://papermill.readthedocs.io/en/latest/) 과 [jupyterlab-celltags](https://github.com/jupyterlab/jupyterlab-celltags) 의 설치가 필요하다).
 
 ![](/assets/2020-01-29-15-47-29.png)
 
