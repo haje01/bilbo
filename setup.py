@@ -15,7 +15,7 @@ setup(
             'bilbo = bilbo.cli:main'
         ]
     },
-    install_requires= [
+    install_requires=[
         'click',
         'paramiko',
         'jsonschema==3.2.0',

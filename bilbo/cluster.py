@@ -1,11 +1,13 @@
 """클러스터 모듈."""
 import os
 from os.path import expanduser
+import re
 import json
 import datetime
 import warnings
 import time
 import webbrowser
+import tempfile
 from urllib.request import urlopen
 from urllib.error import URLError
 
@@ -15,7 +17,7 @@ import paramiko
 
 from bilbo.profile import read_profile, DaskProfile, Profile
 from bilbo.util import critical, warning, error, clust_dir, iter_clusters, \
-    info, get_aws_config
+    info, get_aws_config, PARAM_PTRN
 
 warnings.filterwarnings("ignore")
 
@@ -735,3 +737,61 @@ def open_notebook(clname):
         open_url(url, clinfo)
     else:
         raise Exception("No notebook instance.")
+
+
+def run_notebook_or_python(clname, path, params):
+    """원격 노트북 인스턴스에서 노트북 또는 파이썬 파일 실행."""
+    info("run_notebook_or_python: {} - {}".format(clname, path))
+
+    check_cluster(clname)
+    clinfo = load_cluster_info(clname)
+
+    if 'notebook' not in clinfo:
+        raise RuntimeError("No notebook instance.")
+
+    ncfg = clinfo['notebook']
+    user, private_key = ncfg['ssh_user'], ncfg['ssh_private_key']
+    public_ip = ncfg['public_ip']
+
+    ext = path.split('.')[-1].lower()
+
+    # 노트북 파일
+    if ext == 'ipynb':
+        # Run by papermill
+        tname = next(tempfile._get_candidate_names())
+        tmp = os.path.join('/tmp', tname)
+        elms = path.split('.')
+        out_path = '.'.join(elms[:-1]) + '.out.' + elms[-1]
+        cmd = "cd {} && papermill --cwd {} --no-progress-bar --stdout-file " \
+            "{} {} {}".format(NB_WORKDIR, NB_WORKDIR, tmp, path, out_path)
+        for param in params:
+            match = re.search(PARAM_PTRN, param)
+            if match is None:
+                raise RuntimeError("Parameter syntax error: '{}'".format(param))
+            key, value = match.groups()
+            cmd += " -p {} {}".format(key, value)
+
+        import pdb; pdb.set_trace()
+        info(cmd)
+        res, _ = send_instance_cmd(user, private_key, public_ip, cmd,
+                                show_error=False)
+
+        cmd = 'cat {}'.format(tmp)
+        res, _ = send_instance_cmd(user, private_key, public_ip, cmd)
+    # 파이썬 파일
+    elif ext == 'py':
+        cmd = 'cd {} && '.format(NB_WORKDIR)
+        for param in params:
+            match = re.search(PARAM_PTRN, param)
+            if match is None:
+                raise RuntimeError("Parameter syntax error: '{}'".format(param))
+            key, value = match.groups()
+            cmd += "{}={}".format(key, value)
+
+        cmd += " python {}".format(path)
+        info(cmd)
+        res, _ = send_instance_cmd(user, private_key, public_ip, cmd)
+    else:
+        raise RuntimeError("Unsupported file teyp: {}".format(path))
+
+    return res

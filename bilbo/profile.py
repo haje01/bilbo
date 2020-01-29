@@ -8,10 +8,9 @@ import codecs
 import boto3
 import jsonschema
 
-from bilbo.util import error, prof_dir, mod_dir, info
+from bilbo.util import error, prof_dir, mod_dir, info, PARAM_PTRN
 
 DEFAULT_WORKER = 1
-PARAM_PTRN = re.compile(r'^([\w\.]+)=(.+)?$')
 
 
 def get_latest_schema():
@@ -65,7 +64,6 @@ def override_cfg_by_params(cfg, params):
             return int(s)
         except ValueError:
             raise RuntimeError("Illegal list index: {}".format(s))
-
 
     def get_typed_value(s):
         try:

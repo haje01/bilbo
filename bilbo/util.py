@@ -3,9 +3,13 @@ import os
 import logging
 from configparser import ConfigParser
 from logging.handlers import RotatingFileHandler
+import re
 
 
 LOG_FILE = 'bilbo_log.txt'
+LOG_FMT = logging.Formatter('%(levelname)s [%(filename)s:%(lineno)d]'
+                            ' %(message)s')
+PARAM_PTRN = re.compile(r'^([\w\.]+)=(.+)?$')
 
 mod_dir = os.path.dirname(os.path.abspath(__file__))
 home_dir = os.path.expanduser('~')
@@ -14,10 +18,6 @@ log_dir = os.path.join(bilbo_dir, 'logs')
 log_path = os.path.join(log_dir, LOG_FILE)
 prof_dir = os.path.join(bilbo_dir, 'profiles')
 clust_dir = os.path.join(bilbo_dir, 'clusters')
-
-
-LOG_FMT = logging.Formatter('%(levelname)s [%(filename)s:%(lineno)d]'
-                            ' %(message)s')
 
 
 def make_dir(dir_name, log=True):

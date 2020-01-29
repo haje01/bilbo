@@ -38,6 +38,7 @@ bilbo 는 Linux, macOS, Windows 에서 사용 가능하며, Python 3.5 이상 �
     - [태그 붙이기](#%ed%83%9c%ea%b7%b8-%eb%b6%99%ec%9d%b4%ea%b8%b0)
     - [CLI 패러미터로 프로파일 값 덮어쓰기](#cli-%ed%8c%a8%eb%9f%ac%eb%af%b8%ed%84%b0%eb%a1%9c-%ed%94%84%eb%a1%9c%ed%8c%8c%ec%9d%bc-%ea%b0%92-%eb%8d%ae%ec%96%b4%ec%93%b0%ea%b8%b0)
     - [클러스터 재시작](#%ed%81%b4%eb%9f%ac%ec%8a%a4%ed%84%b0-%ec%9e%ac%ec%8b%9c%ec%9e%91)
+    - [원격으로 노트북 / 파이썬 파일 실행하기](#%ec%9b%90%ea%b2%a9%ec%9c%bc%eb%a1%9c-%eb%85%b8%ed%8a%b8%eb%b6%81--%ed%8c%8c%ec%9d%b4%ec%8d%ac-%ed%8c%8c%ec%9d%bc-%ec%8b%a4%ed%96%89%ed%95%98%ea%b8%b0)
     - [bilbo 의 업데이트와 제거](#bilbo-%ec%9d%98-%ec%97%85%eb%8d%b0%ec%9d%b4%ed%8a%b8%ec%99%80-%ec%a0%9c%ea%b1%b0)
 ---
 
@@ -64,7 +65,7 @@ bilbo 는 Linux, macOS, Windows 에서 사용 가능하며, Python 3.5 이상 �
     --help         Show this message and exit.
 
     Commands:
-    clusters   List active clusters.
+    ls         List active clusters.
     create     Create cluster.
     dashboard  Open dashboard.
     desc       Describe a cluster.
@@ -191,10 +192,12 @@ pip install 'numpy>=1.17.3'
 pip install 'pandas>=0.25.'
 pip install 'jupyterlab>=0.35.0'
 jupyter labextension install @jupyterlab/toc
+jupyter labextension install @jupyterlab/celltags
 pip install 'dask-labextension>=1.0.3'
 jupyter labextension install dask-labextension
 pip install graphviz
 pip install pyarrow
+pip install papermill
 pip install 's3fs>=0.4.0'
 pip install 'fsspec>=0.6.2'
 ```
@@ -384,7 +387,7 @@ AWS EC2 대쉬보드에서도 생성된 노트북 인스턴스를 볼 수 있다
 
 만들어진 클러스터들은 아래와 같이 확인할 수 있다.
 
-    $ bilbo clusters
+    $ bilbo ls
 
     test
 
@@ -793,6 +796,38 @@ AWS 대쉬보드에서 인스턴스의 태그를 확인 가능하다.
 Dask를 사용하다 보면 스케쥴러와 워커 메모리 부족이나, 동작 불안정 등의 이유로 클러스터 재시작이 필요할 수 있다. 이때는 아래와 같이 한다.
 
     $ bilbo restart test-cluster
+
+### 원격으로 노트북 / 파이썬 파일 실행하기
+
+bilbo 로 만든 클러스터에 노트북 인스턴스가 있다면, 거기에 있는 노트북 또는 파이썬 파일을 bilbo 커맨드로 실행할 수 있으며, 매개 변수를 전달할 수도 있다. 테스트를 위해 다음과 같은 `test.ipynb` Jupyter 노트북 파일을 만들고, `parameters` 태그를 셀이 부여한다 (이를 위해 앞에서 예로든 `setup.sh` 처럼 [papermill](https://papermill.readthedocs.io/en/latest/) 과 [jupyterlab-celltags](https://github.com/jupyterlab/jupyterlab-celltags) 의 설치가 필요하다).
+
+![](/assets/2020-01-29-15-47-29.png)
+
+다음처럼 실행하면 된다.
+
+    $ bilbo run test test.ipynb -p val=1234
+
+    1234
+
+파이썬 파일의 경우 다음처럼 `test.py` 를 만들고,
+
+```python
+import os
+
+val = os.environ['val']
+print(val)
+```
+
+다음처럼 실행하면 된다.
+
+    $ bilbo run test.py -p val=1234
+
+    1234
+
+> **주의 :** 파이썬 파일 실행에서 매개 변수는 환경 변수로 전달된다.
+
+`-p` 를 반복적으로 사용하면, 여러 매개 변수를 줄 수 있다.
+
 
 ### bilbo 의 업데이트와 제거
 

@@ -9,7 +9,8 @@ from bilbo.util import set_log_verbosity, iter_profiles
 from bilbo.cluster import create_cluster, show_cluster, \
     destroy_cluster, show_all_cluster, send_instance_cmd, \
     find_cluster_instance_by_public_ip, stop_cluster, start_cluster, \
-    open_dashboard, save_cluster_info, open_notebook, start_notebook
+    open_dashboard, save_cluster_info, open_notebook, start_notebook, \
+    run_notebook_or_python
 from bilbo.profile import check_profile, show_plan
 
 
@@ -66,7 +67,7 @@ def plan(profile, name, param):
 
 
 @main.command(help="List active clusters.")
-def clusters():
+def ls():
     """모든 클러스터를 리스팅."""
     show_all_cluster()
 
@@ -148,11 +149,20 @@ def notebook(cluster):
     open_notebook(cluster)
 
 
+@main.command(help="Run remote notebook or python file.")
+@click.argument('CLUSTER')
+@click.argument('FILE')
+@click.option('-p', '--param', multiple=True,
+              help="Parameter to run with")
+def run(cluster, file, param):
+    res = run_notebook_or_python(cluster, file, param)
+    print('\n'.join(res))
+
+
 @main.command(help='Show bilbo version.')
 def version():
     """버전을 출력."""
     print(VERSION)
-
 
 
 if __name__ == '__main__':
