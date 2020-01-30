@@ -318,7 +318,7 @@ bilbo 의 프로파일은 `.json` 형식으로 기술하는데, 이를 위한 [J
         "ec2type": "t3.micro",
         "keyname": "my-keypair",
         "ssh_user": "ubuntu",
-        "ssh_private_key": "~/.ssh/my-private.pem",
+        "ssh_private_key": "~/.ssh/my-private.pem"
     }
 }
 ```
@@ -861,7 +861,7 @@ print(val)
 
 > **주의 :** 파이썬 파일 실행에서 매개 변수는 환경 변수로 전달된다.
 
-`-p` 를 반복적으로 사용해 여러 매개 변수를 줄 수 있다.
+`-p` 를 반복적으로 사용해 여러 매개 변수를 줄 수도 있다.
 
     $ bilbo run test.py -p val=1234 -p val2=5678
 
