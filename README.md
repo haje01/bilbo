@@ -83,6 +83,22 @@ bilbo 는 Linux, macOS, Windows 에서 사용 가능하며, Python 3.5 이상 �
 
     0.0.1
 
+각 명령별 도움말도 있는데, 예를 들어 `create` 명령에 대한 도움말은 아래와 같이 볼 수 있다:
+
+    $ bilbo create --help
+
+    Usage: bilbo create [OPTIONS] PROFILE
+
+    Create cluster.
+
+    Options:
+    -c, --cluster TEXT  Cluster name (Default: Profile name).
+    -p, --param TEXT    Override profile by parameter.
+    -n, --notebook      Open remote notebook when cluster is ready.
+    -d, --dashboard     Open remote dashboard when cluster is ready.
+    --help              Show this message and exit.
+
+
 bilbo 를 최초로 실행하면 설치된 OS의 유저 홈 디렉토리 아래에 `.bilbo` 라는 디렉토리가 생성되는데, 이것을 **bilbo 홈 디렉토리**로 부르겠다. OS 별 위치는 다음과 같다.
 
 * Linux - `/home/<UserName>/.bilbo`
