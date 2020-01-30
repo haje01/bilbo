@@ -712,7 +712,7 @@ def open_url(url, cldata):
     wb.open(url)
 
 
-def open_dashboard(clname):
+def open_dashboard(clname, url_only):
     """클러스터의 대쉬보드 열기."""
     check_cluster(clname)
     clinfo = load_cluster_info(clname)
@@ -721,20 +721,25 @@ def open_dashboard(clname):
         scd = clinfo['scheduler']
         public_ip = scd['public_ip']
         url = "http://{}:8787".format(public_ip)
-
-        open_url(url, clinfo)
+        if url_only:
+            print(url)
+        else:
+            open_url(url, clinfo)
     else:
         raise NotImplementedError()
 
 
-def open_notebook(clname):
+def open_notebook(clname, url_only):
     """노트북 열기."""
     check_cluster(clname)
     clinfo = load_cluster_info(clname)
 
     if 'notebook_url' in clinfo:
         url = clinfo['notebook_url']
-        open_url(url, clinfo)
+        if url_only:
+            print(url)
+        else:
+            open_url(url, clinfo)
     else:
         raise Exception("No notebook instance.")
 

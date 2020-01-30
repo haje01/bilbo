@@ -25,13 +25,13 @@ def main(ctx, verbose):
 @main.command(help="Create cluster.")
 @click.argument('PROFILE')
 @click.option('-c', '--cluster', "name", help="Cluster name (Default: "
-              "Profile name)")
+              "Profile name).")
 @click.option('-p', '--param', multiple=True,
-              help="Override profile by parameter")
+              help="Override profile by parameter.")
 @click.option('-n', '--notebook', 'open_nb', is_flag=True, help="Open remote "
-              "notebook when cluster is ready")
+              "notebook when cluster is ready.")
 @click.option('-d', '--dashboard', 'open_db', is_flag=True, help="Open remote "
-              "dashboard when cluster is ready")
+              "dashboard when cluster is ready.")
 def create(profile, name, param, open_nb, open_db):
     """클러스터 생성."""
     check_profile(profile)
@@ -58,9 +58,9 @@ def create(profile, name, param, open_nb, open_db):
 
 @main.command(help="Show create cluster plan.")
 @click.argument('PROFILE')
-@click.option('-n', '--name', help="Cluster name")
+@click.option('-n', '--name', help="Cluster name.")
 @click.option('-p', '--param', multiple=True,
-              help="Override profile by parameter")
+              help="Override profile by parameter.")
 def plan(profile, name, param):
     """클러스터 생성 계획 표시."""
     show_plan(profile, name, param)
@@ -88,7 +88,8 @@ def destroy(cluster):
 
 @main.command(help="Describe a cluster.")
 @click.argument('CLUSTER')
-@click.option('-d', '--detail', is_flag=True, help="Show detailed information.")
+@click.option('-d', '--detail', is_flag=True,
+              help="Show detailed information.")
 def desc(cluster, detail):
     show_cluster(cluster, detail)
 
@@ -139,14 +140,16 @@ def rcmd(cluster, public_ip, cmd):
 
 @main.command(help="Open dashboard.")
 @click.argument('CLUSTER')
-def dashboard(cluster):
-    open_dashboard(cluster)
+@click.option('-u', '--url-only', is_flag=True, help="Show URL only.")
+def dashboard(cluster, url_only):
+    open_dashboard(cluster, url_only)
 
 
 @main.command(help="Open notebook.")
 @click.argument('CLUSTER')
-def notebook(cluster):
-    open_notebook(cluster)
+@click.option('-u', '--url-only', is_flag=True, help="Show URL only.")
+def notebook(cluster, url_only):
+    open_notebook(cluster, url_only)
 
 
 @main.command(help="Run remote notebook or python file.")
