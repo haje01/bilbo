@@ -126,7 +126,8 @@ def iter_clusters():
     """프로파일을 순회."""
     for cl in os.listdir(clust_dir):
         if cl.endswith('.json'):
-            yield cl
+            name = '.'.join(cl.split('.')[0:-1])
+            yield name
 
 
 def check_aws_envvars():

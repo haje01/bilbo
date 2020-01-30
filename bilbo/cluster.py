@@ -176,7 +176,7 @@ def save_cluster_info(clname, clinfo):
     path = os.path.join(clust_dir, clname + '.json')
     with open(path, 'wt') as f:
         body = json.dumps(clinfo, default=json_default, indent=4,
-                          sort_keys=True)
+                          sort_keys=True, ensure_ascii=False)
         f.write(body)
 
 
@@ -244,14 +244,19 @@ def create_cluster(profile, clname, params):
 
     # 클러스터 생성
     clinfo = {'name': clname, 'instances': []}
+
+    # 다스크 프로파일
     if 'dask' in pcfg:
         pobj = DaskProfile(pcfg)
         pobj.validate()
         create_dask_cluster(clname, pobj, ec2, clinfo)
+    # 공통 프로파일 (테스트용)
     else:
         pobj = Profile(pcfg)
         pobj.validate()
 
+    if 'description' in pcfg:
+        clinfo['description'] = pcfg['description']
     if 'webbrowser' in pcfg:
         clinfo['webbrowser'] = pcfg['webbrowser']
 
@@ -264,9 +269,15 @@ def create_cluster(profile, clname, params):
 
 def show_all_cluster():
     """모든 클러스터를 표시."""
-    for cl in iter_clusters():
-        name = '.'.join(cl.split('.')[0:-1])
-        print("{}".format(name))
+    for clname in iter_clusters():
+        clinfo = load_cluster_info(clname)
+        name = clinfo['name']
+        desc = clinfo.get('description')
+        if desc is not None:
+            msg = '{} : {}'.format(name, desc)
+        else:
+            msg = name
+        print(msg)
 
 
 def check_cluster(clname):

@@ -53,7 +53,7 @@ def create(profile, name, param, open_nb, open_db):
             print("There is no remote notebook in the cluster.")
 
     if open_db:
-        open_dashboard(name)
+        open_dashboard(name, False)
 
 
 @main.command(help="Show create cluster plan.")
