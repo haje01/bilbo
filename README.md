@@ -398,7 +398,7 @@ AWS EC2 대쉬보드에서도 생성된 노트북 인스턴스를 볼 수 있다
 
     $ bilbo desc test
 
-    Cluster Name: test4
+    Cluster Name: test
     Ready Time: 2020-01-08 17:20:45
 
     Notebook:
@@ -413,7 +413,7 @@ AWS EC2 대쉬보드에서도 생성된 노트북 인스턴스를 볼 수 있다
         "instances": [
             "i-0b90d9d9e7d43ad4e"
         ],
-        "name": "test4",
+        "name": "test",
         "notebook": {
             "ec2type": "t3.micro",
             "image_id": "ami-0f49fa254e1806b72",
@@ -440,14 +440,14 @@ AWS EC2 대쉬보드에서도 생성된 노트북 인스턴스를 볼 수 있다
 
 > **참고 :** 접속 URL만 확인하려면 `-u` 옵션을 준다.
 >
->     $ bilbo notebook test-cluster -u
+>     $ bilbo notebook test -u
 >
 >     http://13.125.227.118:8888/?token=9922aac4abce1f2e15b7bf17b58cdfe8dfdc080a7e5e83af
 
 
 > **참고 :** 만약, 별도의 웹브라우저를 사용하고 싶다면, 프로파일에 `"webbrowser" : "C:\\Program Files (x86)\\Google\\Chrome\\Applications\\chrome.exe"` 식으로 경로를 명시하면 된다.
 
-> **참고 :** 클러스터 생성후, 바로 노트북을 띄우고 싶은 경우 `create` 에 `-n` 옵션을 주면 된다. (단, 클라우드 노트북을 사용할 때만 가능)
+> **참고 :** 클러스터 생성후, 바로 노트북을 띄우고 싶은 경우 `create` 에 `-n` 옵션을 주면 된다 (단, 클라우드 노트북을 사용할 때만 가능).
 >
 >     $ bilbo create test.json -n
 > 비슷한 식으로 `-d` 를 주면, 클러스터 생성후 대쉬보드를 오픈한다.
@@ -505,7 +505,7 @@ AWS EC2 대쉬보드에서도 생성된 노트북 인스턴스를 볼 수 있다
 
     $ bilbo create test.json -c test-cluster
 
-    CRITICAL: Create dask cluster 'test4'.
+    CRITICAL: Create dask cluster 'test-cluster'.
     CRITICAL: Start dask scheduler & workers.
     CRITICAL: Waiting for Dask dashboard ready.
 
