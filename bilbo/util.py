@@ -1,5 +1,6 @@
 """각종 유틸리티 함수."""
 import os
+import sys
 import logging
 from configparser import ConfigParser
 from logging.handlers import RotatingFileHandler
@@ -77,7 +78,7 @@ def set_log_verbosity(verbosity):
     )
     rotfile.setLevel(logging.DEBUG)
 
-    console = logging.StreamHandler()
+    console = logging.StreamHandler(sys.stdout)
     formatter = logging.Formatter('%(levelname)-8s: %(message)s')
     console.setFormatter(formatter)
     console.setLevel(level)
