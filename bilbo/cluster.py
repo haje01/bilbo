@@ -775,7 +775,7 @@ def run_notebook_or_python(clname, path, params):
     if ext == 'ipynb':
         # Run by papermill
         tname = next(tempfile._get_candidate_names())
-        tmp = os.path.join('/tmp', tname)
+        tmp = '/tmp/{}'.format(tname)
         elms = path.split('.')
         out_path = '.'.join(elms[:-1]) + '.out.' + elms[-1]
         cmd = "cd {} && papermill --cwd {} --no-progress-bar --stdout-file " \
