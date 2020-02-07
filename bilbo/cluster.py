@@ -740,7 +740,7 @@ def open_dashboard(clname, url_only):
         raise NotImplementedError()
 
 
-def open_notebook(clname, url_only):
+def open_notebook(clname, url_only=False):
     """노트북 열기."""
     check_cluster(clname)
     clinfo = load_cluster_info(clname)
@@ -787,7 +787,6 @@ def run_notebook_or_python(clname, path, params):
             key, value = match.groups()
             cmd += " -p {} {}".format(key, value)
 
-        import pdb; pdb.set_trace()
         info(cmd)
         res, _ = send_instance_cmd(user, private_key, public_ip, cmd,
                                 show_error=False)
