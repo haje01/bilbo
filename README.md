@@ -855,7 +855,7 @@ print(val)
 
 다음처럼 로컬에서 실행하면 된다.
 
-    $ bilbo run test.py -p val=1234
+    $ bilbo run test test.py -p val=1234
 
     1234
 
@@ -863,8 +863,11 @@ print(val)
 
 `-p` 를 반복적으로 사용해 여러 매개 변수를 줄 수도 있다.
 
-    $ bilbo run test.py -p val=1234 -p val2=5678
+    $ bilbo run test test.py -p val=1234 -p val2=5678
 
+만약, 실행이 완료된 후 다음 작업을 위해 클러스터를 리스타트 하려면 아래와 같이 `-r` 옵션을 지정한다:
+
+    $ bilbo run test test.py -r
 
 ### bilbo 의 업데이트와 제거
 

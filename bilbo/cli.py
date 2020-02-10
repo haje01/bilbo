@@ -112,11 +112,15 @@ def desc(cluster, detail):
 #     show_cluster(cluster, detail)
 
 
+def _restart(cluster):
+    clinfo = stop_cluster(cluster)
+    start_cluster(clinfo)
+
+
 @main.command(help="Restart cluster.")
 @click.argument('CLUSTER')
 def restart(cluster):
-    clinfo = stop_cluster(cluster)
-    start_cluster(clinfo)
+    _restart(cluster)
 
 
 @main.command(help="Command to a cluster instance.")
@@ -157,13 +161,17 @@ def notebook(cluster, url_only):
 @click.argument('FILE')
 @click.option('-p', '--param', multiple=True,
               help="Parameter to run with")
-def run(cluster, file, param):
+@click.option('-r', '--restart', '_restart_after', is_flag=True,
+              help="Restart cluster when after running.")
+def run(cluster, file, param, _restart_after):
     try:
         run_notebook_or_python(cluster, file, param)
     except KeyboardInterrupt:
         print("Interrupt received, stopping...")
         stop_notebook_or_python(cluster, file, param)
     finally:
+        if _restart_after:
+            _restart(cluster)
         print("Finished.")
 
 
