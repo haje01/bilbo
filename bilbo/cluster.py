@@ -426,7 +426,7 @@ def destroy_cluster(clname):
 
 
 def send_instance_cmd(ssh_user, ssh_private_key, public_ip, cmd,
-                      show_error=True, retry_count=10):
+                      show_stdout=True, show_stderr=True, retry_count=10):
     """인스턴스에 SSH 명령어 실행
 
     https://stackoverflow.com/questions/42645196/how-to-ssh-and-run-commands-in-ec2-using-boto3
@@ -436,7 +436,8 @@ def send_instance_cmd(ssh_user, ssh_private_key, public_ip, cmd,
         ssh_private_key (str): SSH Private Key 경로
         public_ip (str): 대상 인스턴스의 IP
         cmd (list): 커맨드 문자열 리스트
-        show_error (bool): 에러 메시지 출력 여부
+        show_stdout (bool): 표준 출력 메시지 출력 여부
+        show_stderr (bool): 에러 메시지 출력 여부
         retry_count (int): 재시도 횟수
 
     Returns:
@@ -467,10 +468,16 @@ def send_instance_cmd(ssh_user, ssh_private_key, public_ip, cmd,
         error("Connection failed to '{}'".format(public_ip))
         return
 
-    stdin, stdout, stderr = client.exec_command(cmd)
-    stdouts = stdout.readlines()
+    stdin, stdout, stderr = client.exec_command(cmd, get_pty=True)
+    if show_stdout:
+        stdouts = []
+        for line in iter(stdout.readline, ""):
+            stdouts.append(line)
+            print(line, end="")
+    else:
+        stdouts = stdout.readlines()
     err = stderr.read()
-    if show_error and len(err) > 0:
+    if show_stderr and len(err) > 0:
         error(err.decode('utf-8'))
 
     client.close()
@@ -755,6 +762,84 @@ def open_notebook(clname, url_only=False):
         raise Exception("No notebook instance.")
 
 
+def stop_notebook_or_python(clname, path, params):
+    """실행한 노트북/파이썬 파일을 중단."""
+    info("stop_notebook_or_python: {} - {}".format(clname, path))
+    check_cluster(clname)
+    clinfo = load_cluster_info(clname)
+
+    if 'notebook' not in clinfo:
+        raise RuntimeError("No notebook instance.")
+
+    ncfg = clinfo['notebook']
+    user, private_key = ncfg['ssh_user'], ncfg['ssh_private_key']
+    public_ip = ncfg['public_ip']
+
+    ext = path.split('.')[-1].lower()
+
+    # 노트북 파일
+    if ext == 'ipynb':
+        # Run by papermill
+        _cmd, _ = _get_run_notebook(path, params)
+        _cmd = _cmd.replace('papermill', '[p]apermill')
+    # 파이썬 파일
+    elif ext == 'py':
+        _cmd = _get_run_python(path, params)
+        _cmd = _cmd.replace('python', '[p]ython')
+    else:
+        raise RuntimeError("Unsupported file type: {}".format(path))
+
+    # 실행된 프로세스 찾기
+    cmd = "ps auxww | grep '{}' | awk '{{print $2}}' | head -n 1".format(_cmd)
+    res, _ = send_instance_cmd(user, private_key, public_ip, cmd,
+                               show_stdout=False, show_stderr=False)
+
+    # 프로세스가 있으면 삭제
+    if len(res) > 0:
+        proc = res[0].strip()
+        cmd = "pkill -P {}".format(proc)
+        info("Delete process: {}".format(cmd))
+        res, _ = send_instance_cmd(user, private_key, public_ip, cmd,
+                                   show_stderr=False)
+    else:
+        info("No process exists.")
+
+
+def _iter_run_param(params):
+    for param in params:
+        match = re.search(PARAM_PTRN, param)
+        if match is None:
+            raise RuntimeError("Parameter syntax error: '{}'".format(param))
+        key, value = match.groups()
+        yield key, value
+
+
+def _get_run_notebook(path, params):
+    tname = next(tempfile._get_candidate_names())
+    tmp = '/tmp/{}'.format(tname)
+    elms = path.split('.')
+    out_path = '.'.join(elms[:-1]) + '.out.' + elms[-1]
+    cmd = "cd {} && papermill --cwd {} --no-progress-bar --stdout-file " \
+        "{} {} {}".format(NB_WORKDIR, NB_WORKDIR, tmp, path, out_path)
+
+    for key, value in _iter_run_param(params):
+        cmd += " -p {} {}".format(key, value)
+
+    info("_get_run_notebook : {}".format(cmd))
+    return cmd, tmp
+
+
+def _get_run_python(path, params):
+    cmd = 'cd {} && '.format(NB_WORKDIR)
+
+    for key, value in _iter_run_param(params):
+        cmd += "{}={} ".format(key, value)
+
+    cmd += "python {}".format(path)
+    info("_get_run_python : {}".format(cmd))
+    return cmd
+
+
 def run_notebook_or_python(clname, path, params):
     """원격 노트북 인스턴스에서 노트북 또는 파이썬 파일 실행."""
     info("run_notebook_or_python: {} - {}".format(clname, path))
@@ -774,39 +859,16 @@ def run_notebook_or_python(clname, path, params):
     # 노트북 파일
     if ext == 'ipynb':
         # Run by papermill
-        tname = next(tempfile._get_candidate_names())
-        tmp = '/tmp/{}'.format(tname)
-        elms = path.split('.')
-        out_path = '.'.join(elms[:-1]) + '.out.' + elms[-1]
-        cmd = "cd {} && papermill --cwd {} --no-progress-bar --stdout-file " \
-            "{} {} {}".format(NB_WORKDIR, NB_WORKDIR, tmp, path, out_path)
-        for param in params:
-            match = re.search(PARAM_PTRN, param)
-            if match is None:
-                raise RuntimeError("Parameter syntax error: '{}'".format(param))
-            key, value = match.groups()
-            cmd += " -p {} {}".format(key, value)
-
-        info(cmd)
+        cmd, tmp = _get_run_notebook(path, params)
         res, _ = send_instance_cmd(user, private_key, public_ip, cmd,
-                                show_error=False)
-
+                                   show_stderr=False)
         cmd = 'cat {}'.format(tmp)
         res, _ = send_instance_cmd(user, private_key, public_ip, cmd)
     # 파이썬 파일
     elif ext == 'py':
-        cmd = 'cd {} && '.format(NB_WORKDIR)
-        for param in params:
-            match = re.search(PARAM_PTRN, param)
-            if match is None:
-                raise RuntimeError("Parameter syntax error: '{}'".format(param))
-            key, value = match.groups()
-            cmd += "{}={} ".format(key, value)
-
-        cmd += "python {}".format(path)
-        info(cmd)
+        cmd = _get_run_python(path, params)
         res, _ = send_instance_cmd(user, private_key, public_ip, cmd)
     else:
-        raise RuntimeError("Unsupported file teyp: {}".format(path))
+        raise RuntimeError("Unsupported file type: {}".format(path))
 
     return res

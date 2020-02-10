@@ -10,7 +10,7 @@ from bilbo.cluster import create_cluster, show_cluster, \
     destroy_cluster, show_all_cluster, send_instance_cmd, \
     find_cluster_instance_by_public_ip, stop_cluster, start_cluster, \
     open_dashboard, save_cluster_info, open_notebook, start_notebook, \
-    run_notebook_or_python
+    run_notebook_or_python, stop_notebook_or_python
 from bilbo.profile import check_profile, show_plan
 
 
@@ -158,8 +158,13 @@ def notebook(cluster, url_only):
 @click.option('-p', '--param', multiple=True,
               help="Parameter to run with")
 def run(cluster, file, param):
-    res = run_notebook_or_python(cluster, file, param)
-    print('\n'.join(res))
+    try:
+        run_notebook_or_python(cluster, file, param)
+    except KeyboardInterrupt:
+        print("Interrupt received, stopping...")
+        stop_notebook_or_python(cluster, file, param)
+    finally:
+        print("Finished.")
 
 
 @main.command(help='Show bilbo version.')
