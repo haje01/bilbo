@@ -22,7 +22,7 @@ from bilbo.util import critical, warning, error, clust_dir, iter_clusters, \
 warnings.filterwarnings("ignore")
 
 NB_WORKDIR = "~/works"
-TRY_SLEEP = 6
+TRY_SLEEP = 10
 
 
 def cluster_info_exists(clname):
@@ -426,7 +426,7 @@ def destroy_cluster(clname):
 
 
 def send_instance_cmd(ssh_user, ssh_private_key, public_ip, cmd,
-                      show_stdout=True, show_stderr=True, retry_count=10):
+                      show_stdout=False, show_stderr=True, retry_count=10):
     """인스턴스에 SSH 명령어 실행
 
     https://stackoverflow.com/questions/42645196/how-to-ssh-and-run-commands-in-ec2-using-boto3
@@ -468,7 +468,7 @@ def send_instance_cmd(ssh_user, ssh_private_key, public_ip, cmd,
         error("Connection failed to '{}'".format(public_ip))
         return
 
-    stdin, stdout, stderr = client.exec_command(cmd, get_pty=True)
+    stdin, stdout, stderr = client.exec_command(cmd, get_pty=show_stdout)
     if show_stdout:
         stdouts = []
         for line in iter(stdout.readline, ""):
@@ -553,6 +553,11 @@ def setup_aws_creds(user, private_key, public_ip):
     send_instance_cmd(user, private_key, public_ip, cmd)
 
 
+def _get_dask_scheduler_address(clinfo):
+    dns = clinfo['scheduler']['private_dns_name']
+    return "DASK_SCHEDULER_ADDRESS=tcp://{}:8786".format(dns)
+
+
 def start_notebook(pobj, clinfo, retry_count=10):
     """노트북 시작.
 
@@ -594,8 +599,7 @@ def start_notebook(pobj, clinfo, retry_count=10):
                    'plugin.jupyterlab-settings'.format(ip)
             send_instance_cmd(user, private_key, public_ip, cmd)
             # 스케쥴러 주소
-            dns = clinfo['scheduler']['private_dns_name']
-            vars = "DASK_SCHEDULER_ADDRESS=tcp://{}:8786".format(dns)
+            vars = _get_dask_scheduler_address(clinfo)
         else:
             raise NotImplementedError()
 
@@ -861,13 +865,16 @@ def run_notebook_or_python(clname, path, params):
         # Run by papermill
         cmd, tmp = _get_run_notebook(path, params)
         res, _ = send_instance_cmd(user, private_key, public_ip, cmd,
-                                   show_stderr=False)
+                                   show_stdout=True, show_stderr=False)
         cmd = 'cat {}'.format(tmp)
         res, _ = send_instance_cmd(user, private_key, public_ip, cmd)
     # 파이썬 파일
     elif ext == 'py':
+        params = list(params)
+        params.insert(0, _get_dask_scheduler_address(clinfo))
         cmd = _get_run_python(path, params)
-        res, _ = send_instance_cmd(user, private_key, public_ip, cmd)
+        res, _ = send_instance_cmd(user, private_key, public_ip, cmd,
+                                   show_stdout=True)
     else:
         raise RuntimeError("Unsupported file type: {}".format(path))
 
