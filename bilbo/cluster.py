@@ -801,9 +801,10 @@ def run_notebook_or_python(clname, path, params):
             if match is None:
                 raise RuntimeError("Parameter syntax error: '{}'".format(param))
             key, value = match.groups()
-            cmd += "{}={}".format(key, value)
+            cmd += "{}={} ".format(key, value)
 
-        cmd += " python {}".format(path)
+        import pdb; pdb.set_trace()
+        cmd += "python {}".format(path)
         info(cmd)
         res, _ = send_instance_cmd(user, private_key, public_ip, cmd)
     else:
