@@ -781,13 +781,16 @@ def stop_notebook_or_python(clname, path, params):
 
     ext = path.split('.')[-1].lower()
 
+    dask_scd_addr = _get_dask_scheduler_address(clinfo)
     # 노트북 파일
     if ext == 'ipynb':
         # Run by papermill
-        _cmd, _ = _get_run_notebook(path, params)
+        _cmd, _ = _get_run_notebook(path, params, [dask_scd_addr])
         _cmd = _cmd.replace('papermill', '[p]apermill')
     # 파이썬 파일
     elif ext == 'py':
+        params = list(params)
+        params.insert(0, dask_scd_addr)
         _cmd = _get_run_python(path, params)
         _cmd = _cmd.replace('python', '[p]ython')
     else:
@@ -818,15 +821,24 @@ def _iter_run_param(params):
         yield key, value
 
 
-def _get_run_notebook(path, params):
+def _get_run_notebook(path, nb_params, cmd_params=None):
+    assert type(nb_params) in [list, tuple]
+
     tname = next(tempfile._get_candidate_names())
     tmp = '/tmp/{}'.format(tname)
     elms = path.split('.')
     out_path = '.'.join(elms[:-1]) + '.out.' + elms[-1]
-    cmd = "cd {} && papermill --cwd {} --no-progress-bar --stdout-file " \
-        "{} {} {}".format(NB_WORKDIR, NB_WORKDIR, tmp, path, out_path)
+    cmd = "cd {} && ".format(NB_WORKDIR)
 
-    for key, value in _iter_run_param(params):
+    if cmd_params is not None:
+        assert type(cmd_params) in [list, tuple]
+        for key, value in _iter_run_param(cmd_params):
+            cmd += "{}={} ".format(key, value)
+
+    cmd += "papermill --cwd {} --no-progress-bar --stdout-file " \
+        "{} {} {}".format(NB_WORKDIR, tmp, path, out_path)
+
+    for key, value in _iter_run_param(nb_params):
         cmd += " -p {} {}".format(key, value)
 
     info("_get_run_notebook : {}".format(cmd))
@@ -860,10 +872,11 @@ def run_notebook_or_python(clname, path, params):
 
     ext = path.split('.')[-1].lower()
 
+    dask_scd_addr = _get_dask_scheduler_address(clinfo)
     # 노트북 파일
     if ext == 'ipynb':
         # Run by papermill
-        cmd, tmp = _get_run_notebook(path, params)
+        cmd, tmp = _get_run_notebook(path, params, [dask_scd_addr])
         res, _ = send_instance_cmd(user, private_key, public_ip, cmd,
                                    show_stdout=True, show_stderr=False)
         cmd = 'cat {}'.format(tmp)
@@ -871,7 +884,7 @@ def run_notebook_or_python(clname, path, params):
     # 파이썬 파일
     elif ext == 'py':
         params = list(params)
-        params.insert(0, _get_dask_scheduler_address(clinfo))
+        params.insert(0, dask_scd_addr)
         cmd = _get_run_python(path, params)
         res, _ = send_instance_cmd(user, private_key, public_ip, cmd,
                                    show_stdout=True)
