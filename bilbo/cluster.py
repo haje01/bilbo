@@ -493,6 +493,10 @@ def find_cluster_instance_by_public_ip(cluster, public_ip):
         body = f.read()
         clinfo = json.loads(body)
 
+    if 'notebook' in clinfo:
+        if clinfo['notebook']['public_ip'] == public_ip:
+            return clinfo['notebook']
+
     if clinfo['type'] == 'dask':
         scd = clinfo['scheduler']
         if scd['public_ip'] == public_ip:

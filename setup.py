@@ -19,5 +19,6 @@ setup(
         'click',
         'paramiko',
         'jsonschema==3.2.0',
+        'boto3'
     ]
 )

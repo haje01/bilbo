@@ -22,7 +22,7 @@ def main(ctx, verbose):
     set_log_verbosity(verbose)
 
 
-@main.command(help="Create cluster.")
+@main.command(help="Create a cluster.")
 @click.argument('PROFILE')
 @click.option('-c', '--cluster', "name", help="Cluster name (Default: "
               "Profile name).")
@@ -56,7 +56,7 @@ def create(profile, name, param, open_nb, open_db):
         open_dashboard(name, False)
 
 
-@main.command(help="Show create cluster plan.")
+@main.command(help="Show cluster creation plan.")
 @click.argument('PROFILE')
 @click.option('-n', '--name', help="Cluster name.")
 @click.option('-p', '--param', multiple=True,
@@ -86,7 +86,7 @@ def destroy(cluster):
     destroy_cluster(cluster)
 
 
-@main.command(help="Describe a cluster.")
+@main.command(help="Describe cluster.")
 @click.argument('CLUSTER')
 @click.option('-d', '--detail', is_flag=True,
               help="Show detailed information.")
