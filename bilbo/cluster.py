@@ -403,12 +403,12 @@ def check_git_modified(clinfo):
     return True
 
 
-def destroy_cluster(clname):
+def destroy_cluster(clname, force):
     """클러스터 제거."""
     check_cluster(clname)
     info = load_cluster_info(clname)
 
-    if 'git_cloned_dir' in info:
+    if 'git_cloned_dir' in info and not force:
         if not check_git_modified(info):
             print("Canceled.")
             return

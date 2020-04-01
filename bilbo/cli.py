@@ -81,9 +81,10 @@ def profiles():
 
 @main.command(help="Destroy cluster.")
 @click.argument('CLUSTER')
-def destroy(cluster):
+@click.option('-f', '--force', is_flag=True, help="Destroy without check.")
+def destroy(cluster, force):
     """클러스터 파괴."""
-    destroy_cluster(cluster)
+    destroy_cluster(cluster, force)
 
 
 @main.command(help="Describe a cluster.")

@@ -729,7 +729,11 @@ Unpushed commit(s)
 Are you sure to destroy this cluster? (y/n):
 ```
 
-여기에서 y 또는 n 을 입력하여 제거 여부를 결정할 수 있다.
+여기에서 y 또는 n 을 입력하여 제거 여부를 결정할 수 있다. 만약 코드 변경 여부에 관계없이 클러스터를 제거하려면 다음처럼 `-f` 옵션을 준다.
+
+```
+$ bilbo destroy -f test
+```
 
 
 ### 인스턴스 접두어 붙이기
