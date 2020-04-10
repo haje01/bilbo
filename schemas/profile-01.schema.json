@@ -25,6 +25,11 @@
                     "description": "Security group id for instance",
                     "pattern": "^sg-[0-9a-f]+$"
                 },
+                "vol_size": {
+                    "type": "integer",
+                    "description": "Root device volume size in GiB",
+                    "minimum": 8
+                },
                 "ssh_user": {
                     "type": "string",
                     "description": "User for SSH login"

@@ -161,6 +161,7 @@ class Instance:
         self.ec2type = icfg.get('ec2type')
         self.keyname = icfg.get('keyname')
         self.secgroup = icfg.get('security_group')
+        self.volsize = icfg.get('vol_size')
         self.ssh_user = icfg.get('ssh_user')
         self.ssh_private_key = icfg.get('ssh_private_key')
         self.tags = icfg.get('tags')
@@ -180,6 +181,7 @@ class Instance:
         self.ami = icfg.get('ami', self.ami)
         self.ec2type = icfg.get('ec2type', self.ec2type)
         self.keyname = icfg.get('keyname', self.keyname)
+        self.volsize = icfg.get('vol_size', self.volsize)
         self.secgroup = icfg.get('security_group', self.secgroup)
         self.ssh_user = icfg.get('ssh_user', self.ssh_user)
         self.ssh_private_key = icfg.get('ssh_private_key',
@@ -331,6 +333,7 @@ def show_instance_plan(inst):
     print("    AMI: {}".format(inst.ami))
     print("    Instance Type: {}".format(inst.ec2type))
     print("    Security Group: {}".format(inst.secgroup))
+    print("    Volume Size: {}".format(inst.volsize))
     print("    Key Name: {}".format(inst.keyname))
     if inst.tags is not None:
         print("    Tags:")

@@ -50,13 +50,16 @@ def _build_tag_spec(name, desc, _tags):
     return tag_spec
 
 
-def create_ec2_instances(ec2, inst, cnt, tag_spec):
+def create_ec2_instances(ec2, inst, cnt, tag_spec, clinfo=None):
     """EC2 인스턴스 생성."""
+    rdm = get_root_dm(ec2, inst)
+
     try:
         ins = ec2.create_instances(ImageId=inst.ami,
                                    InstanceType=inst.ec2type,
                                    MinCount=cnt, MaxCount=cnt,
                                    KeyName=inst.keyname,
+                                   BlockDeviceMappings=rdm,
                                    SecurityGroupIds=[inst.secgroup],
                                    TagSpecifications=tag_spec)
         return ins
@@ -203,18 +206,23 @@ def wait_until_connect(url, retry_count=10):
     raise ConnectionError()
 
 
+def get_root_dm(ec2, inst):
+    """AMI 별 원하는 크기의 디바이스 매핑 얻기."""
+    if inst.volsize is None:
+        return []
+    imgs = list(ec2.images.filter(ImageIds=[inst.ami]))
+    rdev = imgs[0].root_device_name
+    dm = [{"DeviceName": rdev, "Ebs": {"VolumeSize": inst.volsize}}]
+    info("get_root_dm: {}".format(dm))
+    return dm
+
+
 def create_notebook(clname, pobj, ec2, clinfo):
     """노트북 생성."""
     critical("Create notebook.")
     nb_name = pobj.nb_inst.get_name(clname)
     nb_tag_spec = _build_tag_spec(nb_name, pobj.desc, pobj.nb_inst.tags)
-    ins = ec2.create_instances(ImageId=pobj.nb_inst.ami,
-                               InstanceType=pobj.nb_inst.ec2type,
-                               MinCount=1, MaxCount=1,
-                               KeyName=pobj.nb_inst.keyname,
-                               SecurityGroupIds=[pobj.nb_inst.secgroup],
-                               TagSpecifications=nb_tag_spec)
-
+    ins = create_ec2_instances(ec2, pobj.nb_inst, 1, nb_tag_spec)
     nb = ins[0]
     info("Wait for notebook instance to be running.")
     nb.wait_until_running()
