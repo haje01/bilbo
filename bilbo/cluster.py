@@ -638,7 +638,7 @@ def start_notebook(pobj, clinfo, retry_count=10):
         stdouts, _ = send_instance_cmd(user, private_key, ip, cmd)
         # url을 얻었으면 기록
         if len(stdouts) > 1:
-            url = stdouts[1].strip().replace('0.0.0.0', ip)
+            url = stdouts[1].strip().replace('0.0.0.0', ncfg['public_ip'])
             clinfo['notebook_url'] = url
             return
         info("Can not fetch notebook list. Wait for a while.")
