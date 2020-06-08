@@ -138,6 +138,10 @@
             "description": "Instance name prefix",
             "type": "string"
         },
+        "private_command": {
+            "description": "Use private IP to command to a cluster",
+            "type": "boolean"
+        },
         "instance": {
             "description": "Common instance configuration",
             "$ref": "#/definitions/instanceType"

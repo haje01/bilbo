@@ -95,24 +95,6 @@ def desc(cluster, detail):
     show_cluster(cluster, detail)
 
 
-# @desc.command('profile', help='Describe profile.')
-# @click.argument('PROFILE')
-# def desc_profile(profile):
-#     """프로파일을 설명."""
-#     check_profile(profile)
-#     from bilbo.profile import read_profile
-#     pro = read_profile(profile)
-#     print(json.dumps(pro, indent=4, sort_keys=True))
-
-
-# @desc.command('cluster', help='Describe cluster.')
-# @click.argument('CLUSTER')
-# @click.option('--detail', is_flag=True, help="Show detailed information.")
-# def desc_cluster(cluster, detail):
-#     """프로파일을 설명."""
-#     show_cluster(cluster, detail)
-
-
 def _restart(cluster):
     clinfo = stop_cluster(cluster)
     start_cluster(clinfo)

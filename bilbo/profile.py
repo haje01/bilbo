@@ -232,12 +232,12 @@ class Profile:
         # 공통 정보
         self.desc = pcfg.get('description')
         self.inst_prefix = pcfg.get("instance_prefix")
+        self.private_command = pcfg.get("private_command")
         self.inst = None
         if 'instance' in pcfg:
             self.inst = Instance(pcfg['instance'])
 
         # 기타 정보
-        self.instance_prefix = pcfg.get('instance_prefix')
         self.webbrowser = pcfg.get('webbrowser')
 
         # 노트북 정보

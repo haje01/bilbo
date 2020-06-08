@@ -80,6 +80,7 @@ def get_type_instance_info(pobj, only_inst=None):
     if only_inst is not None:
         info['instance_id'] = only_inst.instance_id
         info['public_ip'] = only_inst.public_ip_address
+        info['private_ip'] = only_inst.private_ip_address
         info['private_dns_name'] = only_inst.private_dns_name
         if only_inst.tags is not None:
             info['tags'] = only_inst.tags
@@ -140,6 +141,7 @@ def create_dask_cluster(clname, pobj, ec2, clinfo):
         wi = {}
         wi['instance_id'] = wrk.instance_id
         wi['public_ip'] = wrk.public_ip_address
+        wi['private_ip'] = wrk.private_ip_address
         wi['private_dns_name'] = wrk.private_dns_name
         winfo['instances'].append(wi)
 
@@ -263,10 +265,12 @@ def create_cluster(profile, clname, params):
         pobj = Profile(pcfg)
         pobj.validate()
 
+    # 클러스터 정보에 필요한 프로파일 정보 복사
     if 'description' in pcfg:
         clinfo['description'] = pcfg['description']
     if 'webbrowser' in pcfg:
         clinfo['webbrowser'] = pcfg['webbrowser']
+    clinfo['private_command'] = pcfg.get('private_command', False)
 
     # 노트북 생성
     if 'notebook' in pcfg:
@@ -323,6 +327,7 @@ def show_cluster(clname, detail=False):
     print()
     print("Cluster Name: {}".format(info['name']))
     print("Ready Time: {}".format(info['ready_time']))
+    print("Use Private IP: {}".format(info['private_command']))
 
     idx = 1
     if 'notebook' in info:
@@ -342,8 +347,9 @@ def show_cluster(clname, detail=False):
 
 
 def show_instance(idx, inst):
-    print("  [{}] instance_id: {}, public_ip: {}".
-          format(idx, inst['instance_id'], inst['public_ip']))
+    print("  [{}] instance_id: {}, public_ip: {}, private_ip: {}".
+          format(idx, inst['instance_id'], inst['public_ip'],
+                 inst['private_ip']))
     return idx + 1
 
 
@@ -370,17 +376,17 @@ def check_git_modified(clinfo):
         bool: 변경이 없거나, 유저가 확인한 경우 True
 
     """
-    public_ip = clinfo['notebook']['public_ip']
+    nip = _get_ip(clinfo['notebook'], clinfo['private_command'])
     user = clinfo['notebook']['ssh_user']
     private_key = clinfo['notebook']['ssh_private_key']
     git_dir = clinfo['git_cloned_dir']
 
     cmd = "cd {} && git status --porcelain | grep '^ M.*'".format(git_dir)
-    uncmts, _, = send_instance_cmd(user, private_key, public_ip, cmd)
+    uncmts, _, = send_instance_cmd(user, private_key, nip, cmd)
     uncmt_cnt = len(uncmts)
 
     cmd = "cd {} && git cherry -v".format(git_dir)
-    unpushs, _, = send_instance_cmd(user, private_key, public_ip, cmd)
+    unpushs, _, = send_instance_cmd(user, private_key, nip, cmd)
     unpush_cnt = len(unpushs)
 
     if uncmt_cnt > 0 or unpush_cnt > 0:
@@ -433,7 +439,7 @@ def destroy_cluster(clname, force):
     os.unlink(path)
 
 
-def send_instance_cmd(ssh_user, ssh_private_key, public_ip, cmd,
+def send_instance_cmd(ssh_user, ssh_private_key, ip, cmd,
                       show_stdout=False, show_stderr=True, retry_count=10):
     """인스턴스에 SSH 명령어 실행
 
@@ -442,7 +448,7 @@ def send_instance_cmd(ssh_user, ssh_private_key, public_ip, cmd,
     Args:
         ssh_user (str): SSH 유저
         ssh_private_key (str): SSH Private Key 경로
-        public_ip (str): 대상 인스턴스의 IP
+        ip (str): 대상 인스턴스의 IP
         cmd (list): 커맨드 문자열 리스트
         show_stdout (bool): 표준 출력 메시지 출력 여부
         show_stderr (bool): 에러 메시지 출력 여부
@@ -452,7 +458,7 @@ def send_instance_cmd(ssh_user, ssh_private_key, public_ip, cmd,
         tuple: send_command 함수의 결과 (stdout, stderr)
     """
     info('send_instance_cmd - user: {}, key: {}, ip {}, cmd {}'
-         .format(ssh_user, ssh_private_key, public_ip, cmd))
+         .format(ssh_user, ssh_private_key, ip, cmd))
 
     key_path = expanduser(ssh_private_key)
 
@@ -463,17 +469,17 @@ def send_instance_cmd(ssh_user, ssh_private_key, public_ip, cmd,
     connected = False
     for i in range(retry_count):
         try:
-            client.connect(hostname=public_ip, username=ssh_user, pkey=key)
+            client.connect(hostname=ip, username=ssh_user, pkey=key)
         except (paramiko.ssh_exception.NoValidConnectionsError, TimeoutError):
             warning("Connection failed to '{}'. Retry after a while.".
-                    format(public_ip))
+                    format(ip))
             time.sleep(TRY_SLEEP)
         else:
             connected = True
             break
 
     if not connected:
-        error("Connection failed to '{}'".format(public_ip))
+        error("Connection failed to '{}'".format(ip))
         return
 
     stdin, stdout, stderr = client.exec_command(cmd, get_pty=show_stdout)
@@ -544,7 +550,7 @@ def git_clone_cmd(gobj, workdir):
     return cmd
 
 
-def setup_aws_creds(user, private_key, public_ip):
+def setup_aws_creds(user, private_key, ip):
     """AWS 크레덴셜 설치."""
     cmds = [
         'mkdir -p ~/.aws',
@@ -562,12 +568,17 @@ def setup_aws_creds(user, private_key, public_ip):
     cmds.append(cmd)
 
     cmd = '; '.join(cmds)
-    send_instance_cmd(user, private_key, public_ip, cmd)
+    send_instance_cmd(user, private_key, ip, cmd)
 
 
 def _get_dask_scheduler_address(clinfo):
     dns = clinfo['scheduler']['private_dns_name']
     return "DASK_SCHEDULER_ADDRESS=tcp://{}:8786".format(dns)
+
+
+def _get_ip(cfg, private_command):
+    assert type(private_command) == bool or private_command is None
+    return cfg['private_ip'] if private_command else cfg['public_ip']
 
 
 def start_notebook(pobj, clinfo, retry_count=10):
@@ -585,31 +596,31 @@ def start_notebook(pobj, clinfo, retry_count=10):
 
     ncfg = clinfo['notebook']
     user, private_key = ncfg['ssh_user'], ncfg['ssh_private_key']
-    public_ip = ncfg['public_ip']
+    ip = _get_ip(ncfg, pobj.private_command)
 
     # AWS 크레덴셜 설치
-    setup_aws_creds(user, private_key, public_ip)
+    setup_aws_creds(user, private_key, ip)
 
     # 작업 폴더
     nb_workdir = pobj.nb_workdir or NB_WORKDIR
     cmd = "mkdir -p {}".format(nb_workdir)
-    send_instance_cmd(user, private_key, public_ip, cmd)
+    send_instance_cmd(user, private_key, ip, cmd)
 
     # git 설정이 있으면 설정
     if pobj.nb_git is not None:
-        setup_git(pobj, user, private_key, public_ip, nb_workdir, clinfo)
+        setup_git(pobj, user, private_key, ip, nb_workdir, clinfo)
 
     # 클러스터 타입별 노트북 설정
     vars = ''
     if 'type' in clinfo:
         if clinfo['type'] == 'dask':
             # dask-labextension을 위한 대쉬보드 URL
-            ip = clinfo['scheduler']['public_ip']
+            sip = clinfo['scheduler']['public_ip']
             cmd = "mkdir -p ~/.jupyter/lab/user-settings/dask-labextension; "
             cmd += 'echo \'{{ "defaultURL": "http://{}:8787" }}\' > ' \
                    '~/.jupyter/lab/user-settings/dask-labextension/' \
-                   'plugin.jupyterlab-settings'.format(ip)
-            send_instance_cmd(user, private_key, public_ip, cmd)
+                   'plugin.jupyterlab-settings'.format(sip)
+            send_instance_cmd(user, private_key, ip, cmd)
             # 스케쥴러 주소
             vars = _get_dask_scheduler_address(clinfo)
         else:
@@ -618,15 +629,15 @@ def start_notebook(pobj, clinfo, retry_count=10):
     # Jupyter 시작
     ncmd = "cd {} && {} jupyter lab --ip 0.0.0.0".format(nb_workdir, vars)
     cmd = "screen -S bilbo -d -m bash -c '{}'".format(ncmd)
-    send_instance_cmd(user, private_key, public_ip, cmd)
+    send_instance_cmd(user, private_key, ip, cmd)
 
     # 접속 URL 얻기
     cmd = "jupyter notebook list | awk '{print $1}'"
     for i in range(retry_count):
-        stdouts, _ = send_instance_cmd(user, private_key, public_ip, cmd)
+        stdouts, _ = send_instance_cmd(user, private_key, ip, cmd)
         # url을 얻었으면 기록
         if len(stdouts) > 1:
-            url = stdouts[1].strip().replace('0.0.0.0', public_ip)
+            url = stdouts[1].strip().replace('0.0.0.0', ip)
             clinfo['notebook_url'] = url
             return
         info("Can not fetch notebook list. Wait for a while.")
@@ -634,16 +645,16 @@ def start_notebook(pobj, clinfo, retry_count=10):
     raise TimeoutError("Can not get notebook url.")
 
 
-def setup_git(pobj, user, private_key, public_ip, nb_workdir, clinfo):
+def setup_git(pobj, user, private_key, ip, nb_workdir, clinfo):
     """Git 설정 및 클론."""
     # config
     cmd = "git config --global user.name '{}'; ".format(pobj.nb_git.user)
     cmd += "git config --global user.email '{}'".format(pobj.nb_git.email)
-    send_instance_cmd(user, private_key, public_ip, cmd)
+    send_instance_cmd(user, private_key, ip, cmd)
 
     # 클론 (작업 디렉토리에)
     cmd = git_clone_cmd(pobj.nb_git, nb_workdir)
-    send_instance_cmd(user, private_key, public_ip, cmd, show_stderr=False)
+    send_instance_cmd(user, private_key, ip, cmd, show_stderr=False)
     gcdir = pobj.nb_git.repository.split('/')[-1].replace('.git', '')
     clinfo['git_cloned_dir'] = "{}/{}".format(nb_workdir, gcdir)
 
@@ -651,24 +662,25 @@ def setup_git(pobj, user, private_key, public_ip, nb_workdir, clinfo):
 def start_dask_cluster(clinfo):
     """Dask 클러스터 마스터/워커를 시작."""
     critical("Start dask scheduler & workers.")
+    private_command = clinfo['private_command']
 
     # 스케쥴러 시작
     scd = clinfo['scheduler']
     user, private_key = scd['ssh_user'], scd['ssh_private_key']
-    public_ip = scd['public_ip']
+    sip = _get_ip(scd, private_command)
     scd_dns = scd['private_dns_name']
     cmd = "screen -S bilbo -d -m dask-scheduler"
-    send_instance_cmd(user, private_key, public_ip, cmd)
+    send_instance_cmd(user, private_key, sip, cmd)
 
     # AWS 크레덴셜 설치
-    setup_aws_creds(user, private_key, public_ip)
+    setup_aws_creds(user, private_key, sip)
 
     winfo = clinfo['worker']
     # 워커 실행 옵션
-    public_ip = winfo['instances'][0]['public_ip']
-    info("  Get worker memory from '{}'".format(public_ip))
+    wip = _get_ip(winfo['instances'][0], private_command)
+    info("  Get worker memory from '{}'".format(wip))
     cmd = "free -b | grep 'Mem:' | awk '{print $2}'"
-    stdouts, _ = send_instance_cmd(user, private_key, public_ip, cmd)
+    stdouts, _ = send_instance_cmd(user, private_key, wip, cmd)
     memory = int(stdouts[0])
     nproc, nthread, memory = dask_worker_options(winfo, memory)
     # 결정된 옵션 기록
@@ -679,21 +691,20 @@ def start_dask_cluster(clinfo):
     # 모든 워커들에 대해
     user, private_key = winfo['ssh_user'], winfo['ssh_private_key']
     for wrk in winfo['instances']:
-        public_ip = wrk['public_ip']
+        wip = _get_ip(wrk, private_command)
         # AWS 크레덴셜 설치
-        setup_aws_creds(user, private_key, public_ip)
+        setup_aws_creds(user, private_key, wip)
 
         # 워커 시작
-        public_ip = wrk['public_ip']
         opts = "--nprocs {} --nthreads {} --memory-limit {}".\
             format(nproc, nthread, memory)
         cmd = "screen -S bilbo -d -m dask-worker {}:8786 {}".\
             format(scd_dns, opts)
         warning("  Worker options: {}".format(opts))
-        send_instance_cmd(user, private_key, public_ip, cmd)
+        send_instance_cmd(user, private_key, wip, cmd)
 
     # Dask 스케쥴러의 대쉬보드 기다림
-    dash_url = 'http://{}:8787'.format(scd['public_ip'])
+    dash_url = 'http://{}:8787'.format(sip)
     clinfo['dask_dashboard_url'] = dash_url
     critical("Waiting for Dask dashboard ready.")
     wait_until_connect(dash_url)
@@ -710,23 +721,24 @@ def stop_cluster(clname):
     with open(clpath, 'rt') as f:
         body = f.read()
         clinfo = json.loads(body)
+    private_command = clinfo['private_command']
 
     if clinfo['type'] == 'dask':
         critical("Stop dask scheduler & workers.")
         # 스케쥴러 중지
         scd = clinfo['scheduler']
         user, private_key = scd['ssh_user'], scd['ssh_private_key']
-        public_ip = scd['public_ip']
+        sip = _get_ip(scd, private_command)
         cmd = "screen -X -S 'bilbo' quit"
-        send_instance_cmd(user, private_key, public_ip, cmd)
+        send_instance_cmd(user, private_key, sip, cmd)
 
         worker = clinfo['worker']
         user, private_key = worker['ssh_user'], worker['ssh_private_key']
         for wrk in worker['instances']:
             # 워커 중지
-            public_ip = wrk['public_ip']
+            wip = _get_ip(wrk, private_command)
             cmd = "screen -X -S 'bilbo' quit"
-            send_instance_cmd(user, private_key, public_ip, cmd)
+            send_instance_cmd(user, private_key, wip, cmd)
     else:
         raise NotImplementedError()
 
@@ -783,13 +795,14 @@ def stop_notebook_or_python(clname, path, params):
     info("stop_notebook_or_python: {} - {}".format(clname, path))
     check_cluster(clname)
     clinfo = load_cluster_info(clname)
+    private_command = clinfo['private_command']
 
     if 'notebook' not in clinfo:
         raise RuntimeError("No notebook instance.")
 
     ncfg = clinfo['notebook']
     user, private_key = ncfg['ssh_user'], ncfg['ssh_private_key']
-    public_ip = ncfg['public_ip']
+    ip = _get_ip(ncfg, private_command)
 
     ext = path.split('.')[-1].lower()
 
@@ -810,15 +823,15 @@ def stop_notebook_or_python(clname, path, params):
 
     # 실행된 프로세스 찾기
     cmd = "ps auxww | grep '{}' | awk '{{print $2}}' | head -n 1".format(_cmd)
-    res, _ = send_instance_cmd(user, private_key, public_ip, cmd,
-                               show_stdout=False, show_stderr=False)
+    res, _ = send_instance_cmd(user, private_key, ip, cmd, show_stdout=False,
+                               show_stderr=False)
 
     # 프로세스가 있으면 삭제
     if len(res) > 0:
         proc = res[0].strip()
         cmd = "pkill -P {}".format(proc)
         info("Delete process: {}".format(cmd))
-        res, _ = send_instance_cmd(user, private_key, public_ip, cmd,
+        res, _ = send_instance_cmd(user, private_key, ip, cmd,
                                    show_stderr=False)
     else:
         info("No process exists.")
@@ -874,13 +887,14 @@ def run_notebook_or_python(clname, path, params):
 
     check_cluster(clname)
     clinfo = load_cluster_info(clname)
+    private_command = clinfo['private_command']
 
     if 'notebook' not in clinfo:
         raise RuntimeError("No notebook instance.")
 
     ncfg = clinfo['notebook']
     user, private_key = ncfg['ssh_user'], ncfg['ssh_private_key']
-    public_ip = ncfg['public_ip']
+    nip = _get_ip(ncfg, private_command)
 
     ext = path.split('.')[-1].lower()
 
@@ -889,16 +903,16 @@ def run_notebook_or_python(clname, path, params):
     if ext == 'ipynb':
         # Run by papermill
         cmd, tmp = _get_run_notebook(path, params, [dask_scd_addr])
-        res, _ = send_instance_cmd(user, private_key, public_ip, cmd,
+        res, _ = send_instance_cmd(user, private_key, nip, cmd,
                                    show_stdout=True, show_stderr=False)
         cmd = 'cat {}'.format(tmp)
-        res, _ = send_instance_cmd(user, private_key, public_ip, cmd)
+        res, _ = send_instance_cmd(user, private_key, nip, cmd)
     # 파이썬 파일
     elif ext == 'py':
         params = list(params)
         params.insert(0, dask_scd_addr)
         cmd = _get_run_python(path, params)
-        res, _ = send_instance_cmd(user, private_key, public_ip, cmd,
+        res, _ = send_instance_cmd(user, private_key, nip, cmd,
                                    show_stdout=True)
     else:
         raise RuntimeError("Unsupported file type: {}".format(path))
