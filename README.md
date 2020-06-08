@@ -889,9 +889,7 @@ print(val)
 3. 프로파일에 `private_command` 를 `true` 로 설정. 이렇게 하면 bilbo 를 사용하는 인스턴스에서 클러스터로 명령을 내릴 때 Private IP 를 사용하게 된다.
 ```json
 {
-    ...
     "private_command": true,
-    ...
 }
 ```
 
