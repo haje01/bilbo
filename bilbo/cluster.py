@@ -147,22 +147,23 @@ def create_dask_cluster(clname, pobj, ec2, clinfo):
 
     # ec2 생성 후 반환값의 `ncpu_options` 가 잘못오고 있어 여기서 요청.
     if len(ins) > 0:
-        winfo['cpu_info'] = get_cpu_info(pobj, ins[0])
+        # 첫 번째 워커의 ip
+        wip = _get_ip(winfo['instances'][0], pobj.private_command)
+        winfo['cpu_info'] = get_cpu_info(pobj, wip)
 
 
-def get_cpu_info(pobj, ins):
+def get_cpu_info(pobj, ip):
     """생성된 인스턴스에서 lscpu 명령으로 CPU 정보 얻기."""
     info("get_cpu_info")
-    public_ip = ins.public_ip_address
     user = pobj.wrk_inst.ssh_user
     private_key = pobj.wrk_inst.ssh_private_key
     # Cores
     cmd = "lscpu | grep -e ^CPU\(s\): | awk '{print $2}'"
-    res, _ = send_instance_cmd(user, private_key, public_ip, cmd)
+    res, _ = send_instance_cmd(user, private_key, ip, cmd)
     num_core = int(res[0])
     # Threads per core
     cmd = "lscpu | grep Thread | awk '{print $4}'"
-    res, _ = send_instance_cmd(user, private_key, public_ip, cmd)
+    res, _ = send_instance_cmd(user, private_key, ip, cmd)
     threads_per_core = int(res[0])
     cpu_info = {'CoreCount': num_core, 'ThreadsPerCore': threads_per_core}
     return cpu_info
