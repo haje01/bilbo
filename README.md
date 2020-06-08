@@ -885,7 +885,7 @@ print(val)
 같은 AWS VPC 안의 인스턴스에서 bilbo 를 사용해 클러스터를 만드는 경우, 다음과 다음과 같은 식으로 설정하면 편리하다.
 
 1. bilbo 를 사용할 인스턴스의 보안 그룹 ID 를 확인
-2. [EC2 보안 그룹 생성하기](https://github.com/haje01/bilbo#ec2-보안-그룹-생성하기) 를 참고해 위의 보안 그룹 ID를 설정
+2. [EC2 보안 그룹 생성하기](https://github.com/haje01/bilbo#ec2-보안-그룹-생성하기) 를 참고해 위의 보안 그룹 ID를 추가
 3. 프로파일에 `private_command` 를 `true` 로 설정. 이렇게 하면 bilbo 를 사용하는 인스턴스에서 클러스터로 명령을 내릴 때 Private IP 를 사용하게 된다.
 ```json
 {
