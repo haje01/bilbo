@@ -60,7 +60,7 @@
             "properties": {
                 "repository": {
                     "description": "Git repository URL",
-                    "type": "string",
+                    "type": ["string", "array"],
                     "format": "uri",
                     "pattern": "^https://.+"
                 },

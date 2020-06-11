@@ -541,12 +541,11 @@ def start_cluster(clinfo):
         raise NotImplementedError()
 
 
-def git_clone_cmd(gobj, workdir):
+def git_clone_cmd(repo, user, passwd, workdir):
     """Git 클론 명령 구성"""
-    warning("git clone: {}".format(gobj.repository))
-    repo = gobj.repository
+    warning("git clone: {}".format(repo))
     protocol, address = repo.split('://')
-    url = "{}://{}:{}@{}".format(protocol, gobj.user, gobj.password, address)
+    url = "{}://{}:{}@{}".format(protocol, user, passwd, address)
     cmd = "cd {} && git clone {}".format(workdir, url)
     return cmd
 
@@ -654,10 +653,18 @@ def setup_git(pobj, user, private_key, ip, nb_workdir, clinfo):
     send_instance_cmd(user, private_key, ip, cmd)
 
     # 클론 (작업 디렉토리에)
-    cmd = git_clone_cmd(pobj.nb_git, nb_workdir)
-    send_instance_cmd(user, private_key, ip, cmd, show_stderr=False)
-    gcdir = pobj.nb_git.repository.split('/')[-1].replace('.git', '')
-    clinfo['git_cloned_dir'] = "{}/{}".format(nb_workdir, gcdir)
+    gobj = pobj.nb_git
+    grepo = gobj.repository
+    guser = gobj.user
+    gpasswd = gobj.password
+    repos = [grepo] if type(grepo) is str else grepo
+    cdirs = []
+    for repo in repos:
+        cmd = git_clone_cmd(repo, guser, gpasswd, nb_workdir)
+        send_instance_cmd(user, private_key, ip, cmd, show_stderr=False)
+        gcdir = repo.split('/')[-1].replace('.git', '')
+        cdirs.append("{}/{}".format(nb_workdir, gcdir))
+    clinfo['git_cloned_dir'] = cdirs
 
 
 def start_dask_cluster(clinfo):
