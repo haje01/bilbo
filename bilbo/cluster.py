@@ -380,15 +380,21 @@ def check_git_modified(clinfo):
     nip = _get_ip(clinfo['notebook'], clinfo['private_command'])
     user = clinfo['notebook']['ssh_user']
     private_key = clinfo['notebook']['ssh_private_key']
-    git_dir = clinfo['git_cloned_dir']
+    git_dirs = clinfo['git_cloned_dir']
 
-    cmd = "cd {} && git status --porcelain | grep '^ M.*'".format(git_dir)
-    uncmts, _, = send_instance_cmd(user, private_key, nip, cmd)
-    uncmt_cnt = len(uncmts)
+    uncmts = []
+    unpushs = []
+    uncmt_cnt = unpush_cnt = 0
+    for git_dir in git_dirs:
+        cmd = "cd {} && git status --porcelain | grep '^ M.*'".format(git_dir)
+        _uncmts, _, = send_instance_cmd(user, private_key, nip, cmd)
+        uncmts += [os.path.join(git_dir, u) for u in _uncmts]
+        uncmt_cnt += len(_uncmts)
 
-    cmd = "cd {} && git cherry -v".format(git_dir)
-    unpushs, _, = send_instance_cmd(user, private_key, nip, cmd)
-    unpush_cnt = len(unpushs)
+        cmd = "cd {} && git cherry -v".format(git_dir)
+        _unpushs, _, = send_instance_cmd(user, private_key, nip, cmd)
+        unpushs += [os.path.join(git_dir, u) for u in _unpushs]
+        unpush_cnt += len(_unpushs)
 
     if uncmt_cnt > 0 or unpush_cnt > 0:
         print()
