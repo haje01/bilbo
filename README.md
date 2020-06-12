@@ -792,7 +792,7 @@ AWS 대쉬보드에서 인스턴스의 태그를 확인 가능하다.
 
 ```json
 {
-    "$schema": "file:///Users/haje01/works/bilbo/schemas/profile-01.schema.json",
+    "$schema": "https://raw.githubusercontent.com/haje01/bilbo/master/schemas/profile-01.schema.json",
     "description": "bilbo 테스트",
     "instance": {
         "ami": "ami-0d6f90497c997e994",
