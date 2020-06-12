@@ -360,6 +360,7 @@ def show_dask_cluster(idx, info):
     print("Scheduler:")
     scd = info['scheduler']
     idx = show_instance(idx, scd)
+    print("       {}".format(_get_dask_scheduler_address(info)))
 
     print()
     print("Workers:")
