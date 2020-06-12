@@ -913,7 +913,15 @@ def run_notebook_or_python(clname, path, params):
 
     ext = path.split('.')[-1].lower()
 
-    dask_scd_addr = _get_dask_scheduler_address(clinfo)
+    dask_scd_addr = None
+    if 'scheduler' in clinfo:
+        dask_scd_addr = _get_dask_scheduler_address(clinfo)
+    else:
+        for param in params:
+            if param.startswith('DASK_SCHEDULER_ADDRESS'):
+                dask_scd_addr = param
+    assert dask_scd_addr is not None, "No Dask scheduler address available."
+
     # 노트북 파일
     if ext == 'ipynb':
         # Run by papermill
