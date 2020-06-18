@@ -122,7 +122,8 @@ def rcmd(cluster, public_ip, cmd):
     stdout, _ = send_instance_cmd(ssh_user, ssh_private_key, public_ip, cmd)
 
     if len(stdout) > 0:
-        print(stdout.decode('utf-8'))
+        for out in stdout:
+            print(out)
 
 
 @main.command(help="Open dashboard.")

@@ -64,6 +64,7 @@ def create_ec2_instances(ec2, inst, cnt, tag_spec, clinfo=None):
                                    TagSpecifications=tag_spec)
         return ins
     except botocore.exceptions.ClientError as e:
+        error("create_ec2_instances - {}".format(str(e)))
         if 'Request would have succeeded' not in str(e):
             raise e
 
@@ -214,6 +215,8 @@ def get_root_dm(ec2, inst):
     if inst.volsize is None:
         return []
     imgs = list(ec2.images.filter(ImageIds=[inst.ami]))
+    if len(imgs) == 0:
+        raise ValueError("AMI does not exist.")
     rdev = imgs[0].root_device_name
     dm = [{"DeviceName": rdev, "Ebs": {"VolumeSize": inst.volsize}}]
     info("get_root_dm: {}".format(dm))
@@ -244,6 +247,7 @@ def check_dup_cluster(clname):
 
 def create_cluster(profile, clname, params):
     """클러스터 생성."""
+    critical("Create cluster '{}'.".format(clname))
 
     if clname is None:
         clname = '.'.join(profile.lower().split('.')[0:-1])
@@ -328,7 +332,7 @@ def show_cluster(clname, detail=False):
     print()
     print("Cluster Name: {}".format(info['name']))
     print("Ready Time: {}".format(info['ready_time']))
-    print("Use Private IP: {}".format(info['private_command']))
+    # print("Use Private IP: {}".format(info['private_command']))
 
     idx = 1
     if 'notebook' in info:
@@ -721,7 +725,7 @@ def start_dask_cluster(clinfo):
     # Dask 스케쥴러의 대쉬보드 기다림
     dash_url = 'http://{}:8787'.format(sip)
     clinfo['dask_dashboard_url'] = dash_url
-    critical("Waiting for Dask dashboard ready.")
+    critical("Wait for Dask dashboard ready.")
     wait_until_connect(dash_url)
 
 
