@@ -10,7 +10,8 @@ from bilbo.cluster import create_cluster, show_cluster, \
     destroy_cluster, show_all_cluster, send_instance_cmd, \
     find_cluster_instance_by_public_ip, stop_cluster, start_cluster, \
     open_dashboard, save_cluster_info, open_notebook, start_notebook, \
-    run_notebook_or_python, stop_notebook_or_python
+    run_notebook_or_python, stop_notebook_or_python, pause_cluster, \
+    resume_cluster
 from bilbo.profile import check_profile, show_plan
 
 
@@ -56,6 +57,20 @@ def create(profile, name, param, open_nb, open_db):
         open_dashboard(name, False)
 
 
+@main.command(help="Pause a cluster.")
+@click.argument('CLUSTER')
+def pause(cluster):
+    """클러스터 정지."""
+    pause_cluster(cluster)
+
+
+@main.command(help="Resume a cluster.")
+@click.argument('CLUSTER')
+def resume(cluster):
+    """클러스터 재개."""
+    resume_cluster(cluster)
+
+
 @main.command(help="Show cluster creation plan.")
 @click.argument('PROFILE')
 @click.option('-n', '--name', help="Cluster name.")
@@ -79,7 +94,7 @@ def profiles():
         print(prof)
 
 
-@main.command(help="Destroy cluster.")
+@main.command(help="Destroy a cluster.")
 @click.argument('CLUSTER')
 @click.option('-f', '--force', is_flag=True, help="Destroy without check.")
 def destroy(cluster, force):

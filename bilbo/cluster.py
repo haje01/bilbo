@@ -284,6 +284,140 @@ def create_cluster(profile, clname, params):
     return pobj, clinfo
 
 
+def pause_instance(inst_ids):
+    """인스턴스 정지."""
+    warning("pause_instance: '{}'".format(inst_ids))
+    ec2 = boto3.client('ec2')
+
+
+    # 권한 확인
+    try:
+        ec2.stop_instances(InstanceIds=inst_ids, DryRun=True)
+    except botocore.exceptions.ClientError as e:
+        if 'DryRunOperation' not in str(e):
+            error(str(e))
+            raise
+
+    # 정지
+    try:
+        response = ec2.stop_instances(InstanceIds=inst_ids, DryRun=False)
+        info(response)
+    except botocore.exceptions.ClientError as e:
+        error(str(e))
+
+
+def collect_cluster_instances(info):
+    """클러스터내 인스턴스들 모움."""
+    inst_ids = []
+    if 'notebook' in info:
+        inst_ids.append(info['notebook']['instance_id'])
+
+    if 'type' in info:
+        cltype = info['type']
+        if cltype == 'dask':
+            if 'scheduler' in info:
+                inst_ids.append(info['scheduler']['instance_id'])
+            if 'worker' in info:
+                for w in info['worker']['instances']:
+                    inst_ids.append(w['instance_id'])
+        else:
+            raise NotImplementedError()
+    return inst_ids
+
+
+def pause_cluster(clname):
+    """클러스터 정지."""
+    check_cluster(clname)
+    info = load_cluster_info(clname)
+
+    print()
+    print("Pause Cluster: {}".format(info['name']))
+
+    inst_ids = collect_cluster_instances(info)
+    pause_instance(inst_ids)
+
+
+def resume_instance(inst_ids, ec2):
+    """인스턴스 재개."""
+    warning("resume_instance: '{}'".format(inst_ids))
+
+    # 권한 확인
+    try:
+        ec2.start_instances(InstanceIds=inst_ids, DryRun=True)
+    except botocore.exceptions.ClientError as e:
+        if 'DryRunOperation' not in str(e):
+            error(str(e))
+            raise
+
+    # 재개
+    while True:
+        try:
+            response = ec2.start_instances(InstanceIds=inst_ids, DryRun=False)
+            info(response)
+        except botocore.exceptions.ClientError as e:
+            msg = str(e)
+            if 'is not in a state' not in msg:
+                error(msg)
+                raise
+            time.sleep(5)
+        else:
+            break
+
+
+def _update_cluster_info(ec2, clname, inst_ids, info):
+    # 정보 갱신 대기
+    while True:
+        ready = True
+        warning("Wait until available.")
+        time.sleep(5)
+        res = ec2.describe_instances(InstanceIds=inst_ids)
+        for inst in res['Reservations'][0]['Instances']:
+            if 'PublicIpAddress' not in inst:
+                ready = False
+                print(inst)
+                break
+        if ready:
+            break
+
+    # 바뀐 정보 갱신
+    for reserv in res['Reservations']:
+        inst = reserv['Instances'][0]
+        if 'notebook' in info:
+            nb = info['notebook']
+            if nb['instance_id'] == inst['InstanceId']:
+                nb['public_ip'] = inst['PublicIpAddress']
+        if 'scheduler' in info:
+            scd = info['scheduler']
+            if scd['instance_id'] == inst['InstanceId']:
+                import pdb; pdb.set_trace()
+                scd['public_ip'] = inst['PublicIpAddress']
+        if 'worker' in info:
+            wrk = info['worker']
+            for winst in wrk['instances']:
+                if winst['instance_id'] == inst['InstanceId']:
+                    import pdb; pdb.set_trace()
+                    winst['public_ip'] = inst['PublicIpAddress']
+
+    import pdb; pdb.set_trace()
+    save_cluster_info(clname, info)
+
+
+def resume_cluster(clname):
+    """클러스터 재개."""
+    check_cluster(clname)
+    ec2 = boto3.client('ec2')
+    info = load_cluster_info(clname)
+
+    print()
+    print("Resume Cluster: {}".format(info['name']))
+
+    inst_ids = collect_cluster_instances(info)
+    resume_instance(inst_ids, ec2)
+
+    # 바뀐 정보 갱신
+    _update_cluster_info(ec2, clname, inst_ids, info)
+
+
 def show_all_cluster():
     """모든 클러스터를 표시."""
     for clname in iter_clusters():
