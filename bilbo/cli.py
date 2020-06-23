@@ -68,7 +68,12 @@ def pause(cluster):
 @click.argument('CLUSTER')
 def resume(cluster):
     """클러스터 재개."""
-    resume_cluster(cluster)
+    clinfo = resume_cluster(cluster)
+    remote_nb = 'notebook' in clinfo
+    if remote_nb:
+        start_notebook(pobj, clinfo)
+    if 'type' in clinfo:
+        start_cluster(clinfo)
 
 
 @main.command(help="Show cluster creation plan.")

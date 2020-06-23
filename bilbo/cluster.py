@@ -389,17 +389,15 @@ def _update_cluster_info(ec2, clname, inst_ids, info):
         if 'scheduler' in info:
             scd = info['scheduler']
             if scd['instance_id'] == inst['InstanceId']:
-                import pdb; pdb.set_trace()
                 scd['public_ip'] = inst['PublicIpAddress']
         if 'worker' in info:
             wrk = info['worker']
             for winst in wrk['instances']:
                 if winst['instance_id'] == inst['InstanceId']:
-                    import pdb; pdb.set_trace()
                     winst['public_ip'] = inst['PublicIpAddress']
 
-    import pdb; pdb.set_trace()
     save_cluster_info(clname, info)
+    return info
 
 
 def resume_cluster(clname):
@@ -415,7 +413,7 @@ def resume_cluster(clname):
     resume_instance(inst_ids, ec2)
 
     # 바뀐 정보 갱신
-    _update_cluster_info(ec2, clname, inst_ids, info)
+    return _update_cluster_info(ec2, clname, inst_ids, info)
 
 
 def show_all_cluster():
