@@ -15,9 +15,9 @@ import botocore
 import boto3
 import paramiko
 
-from bilbo.profile import read_profile, DaskProfile, Profile
+from bilbo.profile import read_profile
 from bilbo.util import critical, warning, error, clust_dir, iter_clusters, \
-    info, get_aws_config, PARAM_PTRN
+    info, get_aws_config, PARAM_PTRN, pprint
 
 warnings.filterwarnings("ignore")
 
@@ -50,17 +50,17 @@ def _build_tag_spec(name, desc, _tags):
     return tag_spec
 
 
-def create_ec2_instances(ec2, inst, cnt, tag_spec, clinfo=None):
+def create_ec2_instances(ec2, tpl, cnt, tag_spec):
     """EC2 인스턴스 생성."""
-    rdm = get_root_dm(ec2, inst)
+    rdm = get_root_dm(ec2, tpl)
 
     try:
-        ins = ec2.create_instances(ImageId=inst.ami,
-                                   InstanceType=inst.ec2type,
+        ins = ec2.create_instances(ImageId=tpl['ami'],
+                                   InstanceType=tpl['ec2type'],
                                    MinCount=cnt, MaxCount=cnt,
-                                   KeyName=inst.keyname,
+                                   KeyName=tpl['keyname'],
                                    BlockDeviceMappings=rdm,
-                                   SecurityGroupIds=[inst.secgroup],
+                                   SecurityGroupIds=[tpl['security_group']],
                                    TagSpecifications=tag_spec)
         return ins
     except botocore.exceptions.ClientError as e:
@@ -88,76 +88,88 @@ def get_type_instance_info(pobj, only_inst=None):
     return info
 
 
-def create_dask_cluster(clname, pobj, ec2, clinfo):
+def get_inst_name(clname, role, prefix):
+    if prefix is None:
+        return '{}-{}'.format(clname, role)
+    else:
+        return '{}{}-{}'.format(prefix, clname, role)
+
+
+def create_inst(ec2, tpl, role, clname, prefix):
+    tpl = tpl[role]
+    name = get_inst_name(clname, role, prefix)
+    desc = tpl.get('description')
+    tags = tpl.get('tags')
+    tag_spec = _build_tag_spec(name, desc, tags)
+    cnt = tpl['count'] if 'count' in tpl else 1
+    ins = create_ec2_instances(ec2, tpl, cnt, tag_spec)
+    return ins
+
+
+def instance_info(inst):
+    """실행 인스턴스 정보."""
+    info = {}
+    info['instance_id'] = inst.instance_id
+    info['public_ip'] = inst.public_ip_address
+    info['private_ip'] = inst.private_ip_address
+    info['private_dns_name'] = inst.private_dns_name
+    return info
+
+
+def create_notebook(ec2, clinfo):
+    """노트북 생성."""
+    critical("Create notebook.")
+    clname = clinfo['name']
+    prefix = clinfo['profile'].get('instance_prefix')
+    tpl = clinfo['template']
+    nb = create_inst(ec2, tpl, 'notebook', clname, prefix)[0]
+
+    info("Wait for notebook instance to be running.")
+    nb.wait_until_running()
+    nb.load()
+    clinfo['instance']['notebook'] = instance_info(nb)
+
+
+def create_dask_cluster(ec2, clinfo):
     """Dask 클러스터 생성.
 
     Args:
-        clname (str): 클러스터 이름. 이미 존재하면 에러
-        pobj (bilbo.profile.Profile): 프로파일 정보
         ec2 (botocore.client.EC2): boto EC2 client
+        clinfo (dict): 클러스터 정보
     """
+    clname = clinfo['name']
+    prefix = clinfo['profile'].get('instance_prefix')
     critical("Create dask cluster '{}'.".format(clname))
-
-    # 기존 클러스터가 있으면 에러
-    if cluster_info_exists(clname):
-        raise Exception("Cluster '{}' already exists.".format(clname))
-
     clinfo['type'] = 'dask'
 
-    # create scheduler
-    scd_name = pobj.scd_inst.get_name(clname)
-    scd_tag_spec = _build_tag_spec(scd_name, pobj.desc, pobj.scd_inst.tags)
-    ins = create_ec2_instances(ec2, pobj.scd_inst, 1, scd_tag_spec)
-    scd = ins[0]
-    clinfo['instances'].append(scd.instance_id)
-    clinfo['launch_time'] = datetime.datetime.now()
-
-    # create workers
-    wrk_name = pobj.wrk_inst.get_name(clname)
-    wrk_tag_spec = _build_tag_spec(wrk_name, pobj.desc, pobj.wrk_inst.tags)
-    ins = create_ec2_instances(ec2, pobj.wrk_inst, pobj.wrk_cnt, wrk_tag_spec)
-    inst = pobj.wrk_inst
-    winfo = get_type_instance_info(inst)
-    winfo['count'] = pobj.wrk_cnt
-    # 프로파일에서 지정된 thread/proc 수
-    winfo['nthread'] = pobj.wrk_nthread
-    winfo['nproc'] = pobj.wrk_nproc
-    winfo['instances'] = []
-    clinfo['worker'] = winfo
-    for wrk in ins:
-        clinfo['instances'].append(wrk.instance_id)
+    # 스케쥴러/워커 생성
+    tpl = clinfo['template']
+    scd = create_inst(ec2, tpl, 'scheduler', clname, prefix)[0]
+    wrks = create_inst(ec2, tpl, 'worker', clname, prefix)
+    winsts = clinfo['instance']['workers'] = []
 
     # 사용 가능 상태까지 기다린 후 추가 정보 얻기.
     info("Wait for instance to be running.")
     scd.wait_until_running()
     scd.load()
-
-    inst = pobj.scd_inst
-    sinfo = get_type_instance_info(inst, scd)
-    clinfo['scheduler'] = sinfo
-
-    for wrk in ins:
+    clinfo['instance']['scheduler'] = instance_info(scd)
+    for wrk in wrks:
         wrk.wait_until_running()
         wrk.load()
-        wi = {}
-        wi['instance_id'] = wrk.instance_id
-        wi['public_ip'] = wrk.public_ip_address
-        wi['private_ip'] = wrk.private_ip_address
-        wi['private_dns_name'] = wrk.private_dns_name
-        winfo['instances'].append(wi)
+        winsts.append(instance_info(wrk))
 
     # ec2 생성 후 반환값의 `ncpu_options` 가 잘못오고 있어 여기서 요청.
-    if len(ins) > 0:
+    if len(wrks) > 0:
         # 첫 번째 워커의 ip
-        wip = _get_ip(winfo['instances'][0], pobj.private_command)
-        winfo['cpu_info'] = get_cpu_info(pobj, wip)
+        wip = _get_ip(winsts[0], clinfo['profile'].get('private_command'))
+        tpl['worker']['cpu_info'] = get_cpu_info(tpl['worker'], wip)
 
 
-def get_cpu_info(pobj, ip):
+def get_cpu_info(tpl, ip):
     """생성된 인스턴스에서 lscpu 명령으로 CPU 정보 얻기."""
     info("get_cpu_info")
-    user = pobj.wrk_inst.ssh_user
-    private_key = pobj.wrk_inst.ssh_private_key
+    user = tpl['ssh_user']
+    private_key = tpl['ssh_private_key']
     # Cores
     cmd = "lscpu | grep -e ^CPU\(s\): | awk '{print $2}'"
     res, _ = send_instance_cmd(user, private_key, ip, cmd)
@@ -170,15 +182,17 @@ def get_cpu_info(pobj, ip):
     return cpu_info
 
 
-def save_cluster_info(clname, clinfo):
+def save_cluster_info(clinfo):
     """클러스터 정보파일 쓰기."""
+    clname = clinfo['name']
+
     def json_default(value):
         if isinstance(value, datetime.date):
             return value.strftime('%Y-%m-%d %H:%M:%S')
         raise TypeError('not JSON serializable')
 
     warning("save_cluster_info: '{}'".format(clname))
-    clinfo['ready_time'] = datetime.datetime.now()
+    clinfo['saved_time'] = str(datetime.datetime.now())
 
     path = os.path.join(clust_dir, clname + '.json')
     with open(path, 'wt') as f:
@@ -210,39 +224,40 @@ def wait_until_connect(url, retry_count=10):
     raise ConnectionError()
 
 
-def get_root_dm(ec2, inst):
+def get_root_dm(ec2, iinfo):
     """AMI 별 원하는 크기의 디바이스 매핑 얻기."""
-    if inst.volsize is None:
+    volsize = iinfo.get('vol_size')
+    if volsize is None:
         return []
-    imgs = list(ec2.images.filter(ImageIds=[inst.ami]))
+    imgs = list(ec2.images.filter(ImageIds=[iinfo['ami']]))
     if len(imgs) == 0:
-        raise ValueError("AMI does not exist.")
+        raise ValueError("AMI {} does not exist.".format(iinfo['ami']))
     rdev = imgs[0].root_device_name
-    dm = [{"DeviceName": rdev, "Ebs": {"VolumeSize": inst.volsize}}]
+    dm = [{"DeviceName": rdev, "Ebs": {"VolumeSize": volsize}}]
     info("get_root_dm: {}".format(dm))
     return dm
 
 
-def create_notebook(clname, pobj, ec2, clinfo):
-    """노트북 생성."""
-    critical("Create notebook.")
-    nb_name = pobj.nb_inst.get_name(clname)
-    nb_tag_spec = _build_tag_spec(nb_name, pobj.desc, pobj.nb_inst.tags)
-    ins = create_ec2_instances(ec2, pobj.nb_inst, 1, nb_tag_spec)
-    nb = ins[0]
-    info("Wait for notebook instance to be running.")
-    nb.wait_until_running()
-    nb.load()
-    clinfo['instances'].append(nb.instance_id)
-    ninfo = get_type_instance_info(pobj.nb_inst, nb)
-    clinfo['notebook'] = ninfo
+def validate_inst(role, inst):
+    if len(inst) == 0:
+        raise RuntimeError("No instance config available for '{}'.".
+                           format(role))
 
+    def _raise(vtype, role):
+        raise RuntimeError("No '{}' value for '{}'.".format(vtype, role))
 
-def check_dup_cluster(clname):
-    """클러스터 이름이 겹치는지 검사."""
-    path = os.path.join(clust_dir, clname + '.json')
-    if os.path.isfile(path):
-        raise NameError("Cluster '{}' already exist.".format(clname))
+    if 'ami' not in inst:
+        _raise('ami', role)
+    if 'ec2type' not in inst:
+        _raise('ec2type', role)
+    if 'keyname' not in inst:
+        _raise('keyname', role)
+    if 'security_group' not in inst:
+        _raise('security_group', role)
+    if 'ssh_user' not in inst:
+        _raise('ssh_user', role)
+    if 'ssh_private_key' not in inst:
+        _raise('ssh_private_key', role)
 
 
 def create_cluster(profile, clname, params):
@@ -254,41 +269,30 @@ def create_cluster(profile, clname, params):
 
     check_dup_cluster(clname)
 
-    pcfg = read_profile(profile, params)
+    pro = read_profile(profile, params)
     ec2 = boto3.resource('ec2')
 
-    # 클러스터 생성
-    clinfo = {'name': clname, 'instances': []}
+    #
+    # 클러스터 정보
+    clinfo = init_clinfo(clname)
+    clinfo['profile'] = pro
+    clinfo = resolve_instances(clinfo)
 
-    # 다스크 프로파일
-    if 'dask' in pcfg:
-        pobj = DaskProfile(pcfg)
-        pobj.validate()
-        create_dask_cluster(clname, pobj, ec2, clinfo)
-    # 공통 프로파일 (테스트용)
-    else:
-        pobj = Profile(pcfg)
-        pobj.validate()
-
-    # 클러스터 정보에 필요한 프로파일 정보 복사
-    if 'description' in pcfg:
-        clinfo['description'] = pcfg['description']
-    if 'webbrowser' in pcfg:
-        clinfo['webbrowser'] = pcfg['webbrowser']
-    clinfo['private_command'] = pcfg.get('private_command', False)
+    # 클러스터 인스턴스 생성
+    if 'dask' in clinfo['profile']:
+        create_dask_cluster(ec2, clinfo)
 
     # 노트북 생성
-    if 'notebook' in pcfg:
-        create_notebook(clname, pobj, ec2, clinfo)
+    if 'notebook' in pro:
+        create_notebook(ec2, clinfo)
 
-    return pobj, clinfo
+    return clinfo
 
 
 def pause_instance(inst_ids):
     """인스턴스 정지."""
     warning("pause_instance: '{}'".format(inst_ids))
     ec2 = boto3.client('ec2')
-
 
     # 권한 확인
     try:
@@ -306,20 +310,21 @@ def pause_instance(inst_ids):
         error(str(e))
 
 
-def collect_cluster_instances(info):
+def collect_cluster_instances(clinfo):
     """클러스터내 인스턴스들 모움."""
     inst_ids = []
-    if 'notebook' in info:
-        inst_ids.append(info['notebook']['instance_id'])
+    insts = clinfo['instance']
+    if 'notebook' in insts:
+        inst_ids.append(insts['notebook']['instance_id'])
 
-    if 'type' in info:
-        cltype = info['type']
+    if 'type' in clinfo:
+        cltype = clinfo['type']
         if cltype == 'dask':
-            if 'scheduler' in info:
-                inst_ids.append(info['scheduler']['instance_id'])
-            if 'worker' in info:
-                for w in info['worker']['instances']:
-                    inst_ids.append(w['instance_id'])
+            if 'scheduler' in insts:
+                inst_ids.append(insts['scheduler']['instance_id'])
+            wrks = insts['workers']
+            for wrk in wrks:
+                inst_ids.append(wrk['instance_id'])
         else:
             raise NotImplementedError()
     return inst_ids
@@ -364,7 +369,7 @@ def resume_instance(inst_ids, ec2):
             break
 
 
-def _update_cluster_info(ec2, clname, inst_ids, info):
+def _update_cluster_info(ec2, clname, inst_ids, clinfo):
     # 정보 갱신 대기
     while True:
         ready = True
@@ -382,38 +387,40 @@ def _update_cluster_info(ec2, clname, inst_ids, info):
     # 바뀐 정보 갱신
     for reserv in res['Reservations']:
         inst = reserv['Instances'][0]
-        if 'notebook' in info:
-            nb = info['notebook']
+        insts = clinfo['instance']
+        if 'notebook' in insts:
+            nb = insts['notebook']
             if nb['instance_id'] == inst['InstanceId']:
-                nb['public_ip'] = inst['PublicIpAddress']
-        if 'scheduler' in info:
-            scd = info['scheduler']
+                new_ip = inst['PublicIpAddress']
+                nb['public_ip'] = new_ip
+        if 'scheduler' in insts:
+            scd = insts['scheduler']
             if scd['instance_id'] == inst['InstanceId']:
                 scd['public_ip'] = inst['PublicIpAddress']
-        if 'worker' in info:
-            wrk = info['worker']
-            for winst in wrk['instances']:
-                if winst['instance_id'] == inst['InstanceId']:
-                    winst['public_ip'] = inst['PublicIpAddress']
+        if 'workers' in insts:
+            wrks = insts['workers']
+            for wrk in wrks:
+                if wrk['instance_id'] == inst['InstanceId']:
+                    wrk['public_ip'] = inst['PublicIpAddress']
 
-    save_cluster_info(clname, info)
-    return info
+    save_cluster_info(clinfo)
+    return clinfo
 
 
 def resume_cluster(clname):
     """클러스터 재개."""
     check_cluster(clname)
     ec2 = boto3.client('ec2')
-    info = load_cluster_info(clname)
+    clinfo = load_cluster_info(clname)
 
     print()
-    print("Resume Cluster: {}".format(info['name']))
+    print("Resume Cluster: {}".format(clinfo['name']))
 
-    inst_ids = collect_cluster_instances(info)
+    inst_ids = collect_cluster_instances(clinfo)
     resume_instance(inst_ids, ec2)
 
     # 바뀐 정보 갱신
-    return _update_cluster_info(ec2, clname, inst_ids, info)
+    return _update_cluster_info(ec2, clname, inst_ids, clinfo)
 
 
 def show_all_cluster():
@@ -452,32 +459,31 @@ def check_cluster(clname):
 
 def show_cluster(clname, detail=False):
     """클러스터 정보를 표시."""
-    path = check_cluster(clname)
+    check_cluster(clname)
     if detail:
-        with open(path, 'rt') as f:
-            body = f.read()
-            print(body)
+        clinfo = load_cluster_info(clname)
+        pprint(clinfo)
         return
 
-    info = load_cluster_info(clname)
+    clinfo = load_cluster_info(clname)
 
     print()
-    print("Cluster Name: {}".format(info['name']))
-    print("Ready Time: {}".format(info['ready_time']))
-    # print("Use Private IP: {}".format(info['private_command']))
+    print("Cluster Name: {}".format(clinfo['name']))
+    print("Ready Time: {}".format(clinfo['saved_time']))
 
+    insts = clinfo['instance']
     idx = 1
-    if 'notebook' in info:
+    if 'notebook' in insts:
         print()
         print("Notebook:")
-        idx = show_instance(idx, info['notebook'])
+        idx = show_instance(idx, insts['notebook'])
         print()
 
-    if 'type' in info:
-        cltype = info['type']
+    if 'type' in clinfo:
+        cltype = clinfo['type']
         print("Cluster Type: {}".format(cltype))
         if cltype == 'dask':
-            show_dask_cluster(idx, info)
+            show_dask_cluster(idx, clinfo)
         else:
             raise NotImplementedError()
     print()
@@ -490,18 +496,19 @@ def show_instance(idx, inst):
     return idx + 1
 
 
-def show_dask_cluster(idx, info):
+def show_dask_cluster(idx, clinfo):
     """Dask 클러스터 표시."""
     print()
+    insts = clinfo['instance']
     print("Scheduler:")
-    scd = info['scheduler']
+    scd = insts['scheduler']
     idx = show_instance(idx, scd)
-    print("       {}".format(_get_dask_scheduler_address(info)))
+    print("       {}".format(_get_dask_scheduler_address(clinfo)))
 
     print()
     print("Workers:")
-    winfo = info['worker']
-    for wrk in winfo['instances']:
+    wrks = insts['workers']
+    for wrk in wrks:
         idx = show_instance(idx, wrk)
 
 
@@ -514,9 +521,12 @@ def check_git_modified(clinfo):
         bool: 변경이 없거나, 유저가 확인한 경우 True
 
     """
-    nip = _get_ip(clinfo['notebook'], clinfo['private_command'])
-    user = clinfo['notebook']['ssh_user']
-    private_key = clinfo['notebook']['ssh_private_key']
+    nip = _get_ip(
+        clinfo['instance']['notebook'],
+        clinfo['profile'].get('private_command')
+    )
+    user = clinfo['template']['notebook']['ssh_user']
+    private_key = clinfo['template']['notebook']['ssh_private_key']
     git_dirs = clinfo['git_cloned_dir']
 
     uncmts = []
@@ -564,19 +574,25 @@ def check_git_modified(clinfo):
 def destroy_cluster(clname, force):
     """클러스터 제거."""
     check_cluster(clname)
-    info = load_cluster_info(clname)
+    clinfo = load_cluster_info(clname)
 
-    if 'git_cloned_dir' in info and not force:
-        if not check_git_modified(info):
+    if 'git_cloned_dir' in clinfo and not force:
+        if not check_git_modified(clinfo):
             print("Canceled.")
             return
 
     critical("Destroy cluster '{}'.".format(clname))
+
     # 인스턴스 제거
     ec2 = boto3.client('ec2')
-    instances = info['instances']
-    if len(instances) > 0:
-        ec2.terminate_instances(InstanceIds=info['instances'])
+    inst_ids = []
+    for k, v in clinfo['instance'].items():
+        if k == 'workers':
+            inst_ids += [w['instance_id'] for w in v]
+        else:
+            inst_ids.append(v['instance_id'])
+    if len(inst_ids) > 0:
+        ec2.terminate_instances(InstanceIds=inst_ids)
 
     # 클러스터 파일 제거
     path = os.path.join(clust_dir, clname + '.json')
@@ -643,35 +659,39 @@ def send_instance_cmd(ssh_user, ssh_private_key, ip, cmd,
     return stdouts, err
 
 
-def find_cluster_instance_by_public_ip(cluster, public_ip):
+def find_cluster_instance_by_public_ip(clname, public_ip):
     """Public IP로 클러스터 인스턴스 정보 찾기."""
-    clpath = check_cluster(cluster)
+    check_cluster(clname)
+    clinfo = load_cluster_info(clname)
 
-    with open(clpath, 'rt') as f:
-        body = f.read()
-        clinfo = json.loads(body)
+    def _res(inst, role):
+        tpl = clinfo['template']
+        ssh_user = tpl[role]['ssh_user']
+        ssh_private_key = tpl[role]['ssh_private_key']
+        return inst, ssh_user, ssh_private_key
 
-    if 'notebook' in clinfo:
-        if clinfo['notebook']['public_ip'] == public_ip:
-            return clinfo['notebook']
+    insts = clinfo['instance']
+    if 'notebook' in insts:
+        if insts['notebook']['public_ip'] == public_ip:
+            return _res(insts['notebook'], 'notebook')
 
     if clinfo['type'] == 'dask':
-        scd = clinfo['scheduler']
+        scd = insts['scheduler']
         if scd['public_ip'] == public_ip:
-            return scd
-        winfo = clinfo['worker']
-        for wrk in winfo['instances']:
+            return _res(scd, 'scheduler')
+        wrks = insts['workers']
+        for wrk in wrks:
             if wrk['public_ip'] == public_ip:
-                return wrk
+                return _res(wrk, 'worker')
     else:
         raise NotImplementedError()
 
 
-def dask_worker_options(winfo, memory):
+def dask_worker_options(wtpl, memory):
     """Dask 클러스터 워커 인스턴스 정보에서 워커 옵션 구하기."""
-    co = winfo['cpu_info']
-    nproc = winfo['nproc'] or co['CoreCount']
-    nthread = winfo['nthread'] or co['ThreadsPerCore']
+    co = wtpl['cpu_info']
+    nproc = wtpl.get('nproc', co['CoreCount'])
+    nthread = wtpl.get('nthread', co['ThreadsPerCore'])
     return nproc, nthread, memory // nproc
 
 
@@ -715,16 +735,16 @@ def setup_aws_creds(user, private_key, ip):
 
 
 def _get_dask_scheduler_address(clinfo):
-    dns = clinfo['scheduler']['private_dns_name']
+    dns = clinfo['instance']['scheduler']['private_dns_name']
     return "DASK_SCHEDULER_ADDRESS=tcp://{}:8786".format(dns)
 
 
-def _get_ip(cfg, private_command):
+def _get_ip(inst, private_command):
     assert type(private_command) == bool or private_command is None
-    return cfg['private_ip'] if private_command else cfg['public_ip']
+    return inst['private_ip'] if private_command else inst['public_ip']
 
 
-def start_notebook(pobj, clinfo, retry_count=10):
+def start_notebook(clinfo, retry_count=10):
     """노트북 시작.
 
     Args:
@@ -737,28 +757,32 @@ def start_notebook(pobj, clinfo, retry_count=10):
     """
     critical("Start notebook.")
 
-    ncfg = clinfo['notebook']
-    user, private_key = ncfg['ssh_user'], ncfg['ssh_private_key']
-    ip = _get_ip(ncfg, pobj.private_command)
+    tpl = clinfo['template']['notebook']
+    pro = clinfo['profile']
+    user, private_key = tpl['ssh_user'], tpl['ssh_private_key']
+    inst = clinfo['instance']['notebook']
+    ip = _get_ip(inst, pro.get('private_command'))
 
     # AWS 크레덴셜 설치
     setup_aws_creds(user, private_key, ip)
 
     # 작업 폴더
-    nb_workdir = pobj.nb_workdir or NB_WORKDIR
+    nb_workdir = tpl.get('workdir', NB_WORKDIR)
     cmd = "mkdir -p {}".format(nb_workdir)
     send_instance_cmd(user, private_key, ip, cmd)
 
     # git 설정이 있으면 설정
-    if pobj.nb_git is not None:
-        setup_git(pobj, user, private_key, ip, nb_workdir, clinfo)
+    if 'notebook' in pro and 'git' in pro['notebook']:
+        nb_git = pro['notebook']['git']
+        cloned_dir = setup_git(nb_git, user, private_key, ip, nb_workdir)
+        clinfo['git_cloned_dir'] = cloned_dir
 
     # 클러스터 타입별 노트북 설정
     vars = ''
     if 'type' in clinfo:
         if clinfo['type'] == 'dask':
             # dask-labextension을 위한 대쉬보드 URL
-            sip = clinfo['scheduler']['public_ip']
+            sip = clinfo['instance']['scheduler']['public_ip']
             cmd = "mkdir -p ~/.jupyter/lab/user-settings/dask-labextension; "
             cmd += 'echo \'{{ "defaultURL": "http://{}:8787" }}\' > ' \
                    '~/.jupyter/lab/user-settings/dask-labextension/' \
@@ -780,7 +804,7 @@ def start_notebook(pobj, clinfo, retry_count=10):
         stdouts, _ = send_instance_cmd(user, private_key, ip, cmd)
         # url을 얻었으면 기록
         if len(stdouts) > 1:
-            url = stdouts[1].strip().replace('0.0.0.0', ncfg['public_ip'])
+            url = stdouts[1].strip().replace('0.0.0.0', inst['public_ip'])
             clinfo['notebook_url'] = url
             return
         info("Can not fetch notebook list. Wait for a while.")
@@ -788,36 +812,38 @@ def start_notebook(pobj, clinfo, retry_count=10):
     raise TimeoutError("Can not get notebook url.")
 
 
-def setup_git(pobj, user, private_key, ip, nb_workdir, clinfo):
+def setup_git(nb_git, user, private_key, ip, nb_workdir):
     """Git 설정 및 클론."""
+    guser = nb_git['user']
+    email = nb_git['email']
+
     # config
-    cmd = "git config --global user.name '{}'; ".format(pobj.nb_git.user)
-    cmd += "git config --global user.email '{}'".format(pobj.nb_git.email)
+    cmd = "git config --global user.name '{}'; ".format(guser)
+    cmd += "git config --global user.email '{}'".format(email)
     send_instance_cmd(user, private_key, ip, cmd)
 
     # 클론 (작업 디렉토리에)
-    gobj = pobj.nb_git
-    grepo = gobj.repository
-    guser = gobj.user
-    gpasswd = gobj.password
-    repos = [grepo] if type(grepo) is str else grepo
+    repo = nb_git['repository']
+    passwd = nb_git['password']
+    repos = [repo] if type(repo) is str else repo
     cdirs = []
     for repo in repos:
-        cmd = git_clone_cmd(repo, guser, gpasswd, nb_workdir)
+        cmd = git_clone_cmd(repo, guser, passwd, nb_workdir)
         send_instance_cmd(user, private_key, ip, cmd, show_stderr=False)
         gcdir = repo.split('/')[-1].replace('.git', '')
         cdirs.append("{}/{}".format(nb_workdir, gcdir))
-    clinfo['git_cloned_dir'] = cdirs
+    return cdirs
 
 
 def start_dask_cluster(clinfo):
     """Dask 클러스터 마스터/워커를 시작."""
     critical("Start dask scheduler & workers.")
-    private_command = clinfo['private_command']
+    private_command = clinfo.get('private_command')
 
     # 스케쥴러 시작
-    scd = clinfo['scheduler']
-    user, private_key = scd['ssh_user'], scd['ssh_private_key']
+    stpl = clinfo['template']['scheduler']
+    user, private_key = stpl['ssh_user'], stpl['ssh_private_key']
+    scd = clinfo['instance']['scheduler']
     sip = _get_ip(scd, private_command)
     scd_dns = scd['private_dns_name']
     cmd = "screen -S bilbo -d -m dask-scheduler"
@@ -826,22 +852,24 @@ def start_dask_cluster(clinfo):
     # AWS 크레덴셜 설치
     setup_aws_creds(user, private_key, sip)
 
-    winfo = clinfo['worker']
-    # 워커 실행 옵션
-    wip = _get_ip(winfo['instances'][0], private_command)
+    # 워커 실행 옵션 구하기
+    wrks = clinfo['instance']['workers']
+    wip = _get_ip(wrks[0], private_command)
     info("  Get worker memory from '{}'".format(wip))
     cmd = "free -b | grep 'Mem:' | awk '{print $2}'"
     stdouts, _ = send_instance_cmd(user, private_key, wip, cmd)
     memory = int(stdouts[0])
-    nproc, nthread, memory = dask_worker_options(winfo, memory)
+    wtpl = clinfo['template']['worker']
+    nproc, nthread, memory = dask_worker_options(wtpl, memory)
     # 결정된 옵션 기록
-    winfo['nproc'] = nproc
-    winfo['nthread'] = nthread
-    winfo['memory'] = memory
+    wtpl = clinfo['template']['worker']
+    wtpl['nproc'] = nproc
+    wtpl['nthread'] = nthread
+    wtpl['memory'] = memory
 
     # 모든 워커들에 대해
-    user, private_key = winfo['ssh_user'], winfo['ssh_private_key']
-    for wrk in winfo['instances']:
+    user, private_key = wtpl['ssh_user'], wtpl['ssh_private_key']
+    for wrk in wrks:
         wip = _get_ip(wrk, private_command)
         # AWS 크레덴셜 설치
         setup_aws_creds(user, private_key, wip)
@@ -867,25 +895,24 @@ def stop_cluster(clname):
     Returns:
         dict: 클러스터 정보(재시작 용)
     """
-    clpath = check_cluster(clname)
-
-    with open(clpath, 'rt') as f:
-        body = f.read()
-        clinfo = json.loads(body)
-    private_command = clinfo['private_command']
+    check_cluster(clname)
+    clinfo = load_cluster_info(clname)
+    private_command = clinfo.get('private_command')
 
     if clinfo['type'] == 'dask':
         critical("Stop dask scheduler & workers.")
         # 스케쥴러 중지
-        scd = clinfo['scheduler']
-        user, private_key = scd['ssh_user'], scd['ssh_private_key']
+        stpl = clinfo['template']['scheduler']
+        scd = clinfo['instance']['scheduler']
+        user, private_key = stpl['ssh_user'], stpl['ssh_private_key']
         sip = _get_ip(scd, private_command)
         cmd = "screen -X -S 'bilbo' quit"
         send_instance_cmd(user, private_key, sip, cmd)
 
-        worker = clinfo['worker']
-        user, private_key = worker['ssh_user'], worker['ssh_private_key']
-        for wrk in worker['instances']:
+        wtpl = clinfo['template']['worker']
+        user, private_key = wtpl['ssh_user'], wtpl['ssh_private_key']
+        wrks = clinfo['instance']['workers']
+        for wrk in wrks:
             # 워커 중지
             wip = _get_ip(wrk, private_command)
             cmd = "screen -X -S 'bilbo' quit"
@@ -915,7 +942,7 @@ def open_dashboard(clname, url_only):
     clinfo = load_cluster_info(clname)
 
     if clinfo['type'] == 'dask':
-        scd = clinfo['scheduler']
+        scd = clinfo['instance']['scheduler']
         public_ip = scd['public_ip']
         url = "http://{}:8787".format(public_ip)
         if url_only:
@@ -946,7 +973,7 @@ def stop_notebook_or_python(clname, path, params):
     info("stop_notebook_or_python: {} - {}".format(clname, path))
     check_cluster(clname)
     clinfo = load_cluster_info(clname)
-    private_command = clinfo['private_command']
+    private_command = clinfo.get('private_command')
 
     if 'notebook' not in clinfo:
         raise RuntimeError("No notebook instance.")
@@ -1038,19 +1065,20 @@ def run_notebook_or_python(clname, path, params):
 
     check_cluster(clname)
     clinfo = load_cluster_info(clname)
-    private_command = clinfo['private_command']
+    private_command = clinfo.get('private_command')
 
-    if 'notebook' not in clinfo:
+    if 'notebook' not in clinfo['instance']:
         raise RuntimeError("No notebook instance.")
 
-    ncfg = clinfo['notebook']
-    user, private_key = ncfg['ssh_user'], ncfg['ssh_private_key']
-    nip = _get_ip(ncfg, private_command)
+    ntpl = clinfo['template']['notebook']
+    user, private_key = ntpl['ssh_user'], ntpl['ssh_private_key']
+    nb = clinfo['instance']['notebook']
+    nip = _get_ip(nb, private_command)
 
     ext = path.split('.')[-1].lower()
 
     dask_scd_addr = None
-    if 'scheduler' in clinfo:
+    if 'scheduler' in clinfo['instance']:
         dask_scd_addr = _get_dask_scheduler_address(clinfo)
     else:
         for param in params:
@@ -1077,3 +1105,124 @@ def run_notebook_or_python(clname, path, params):
         raise RuntimeError("Unsupported file type: {}".format(path))
 
     return res
+
+
+def show_plan(profile, clname, params):
+    """실행 계획 표시"""
+    if clname is None:
+        clname = '.'.join(profile.lower().split('.')[0:-1])
+    print("\nCluster name: {}\n".format(clname))
+
+    pro = read_profile(profile, params)
+    if 'dask' in pro:
+        print("Bilbo will create Dask cluster with following options:")
+
+    clinfo = init_clinfo(clname)
+    clinfo['profile'] = pro
+    clinfo = resolve_instances(clinfo)
+    has_instance = False
+    ntpl = clinfo['template']['notebook']
+    if ntpl is not None:
+        print("")
+        print("  Notebook:")
+        show_instance_plan(ntpl)
+        has_instance = True
+        print("")
+
+    if 'dask' in pro:
+        show_dask_plan(clinfo)
+        has_instance = True
+
+    if not has_instance:
+        print("\nNothing to do.\n")
+
+
+def show_instance_plan(tpl):
+    """인스턴스 플랜."""
+    print("    AMI: {}".format(tpl['ami']))
+    print("    Instance Type: {}".format(tpl['ec2type']))
+    print("    Security Group: {}".format(tpl['security_group']))
+    print("    Volume Size: {}".format(tpl['vol_size']))
+    print("    Key Name: {}".format(tpl['keyname']))
+    if tpl.get('tags') is not None:
+        print("    Tags:")
+        for tag in tpl['tags']:
+            print("        {}: {}".format(tag[0], tag[1]))
+
+
+def show_dask_plan(clinfo):
+    """클러스터 생성 계획 표시."""
+    print("  Cluster Type: Dask")
+
+    print("")
+    print("  1 Scheduler:")
+    stpl = clinfo['template']['scheduler']
+    show_instance_plan(stpl)
+
+    wtpl = clinfo['template']['worker']
+    print("")
+    print("  {} Worker(s):".format(wtpl['count']))
+    show_instance_plan(wtpl)
+    print("")
+
+
+def init_clinfo(clname):
+    clinfo = {'name': clname, 'template': {}, 'instance': {}}
+    return clinfo
+
+
+def resolve_instances(clinfo):
+    """프로파일에서 생성할 인스턴스 정보 결정."""
+    pro = clinfo['profile']
+    resolved = {}
+    pinst = pro['instance'] if 'instance' in pro else None
+
+    def _merge(inst1, inst2):
+        minst = {**inst1, **inst2}
+        if 'tags' in inst1 and 'tags' in inst2:
+            tags1 = dict(inst1['tags'])
+            tags2 = dict(inst2['tags'])
+            minst['tags'] = {**tags1, **tags2}
+        return minst
+
+    def _resolve(role):
+        _pinst = {} if pinst is None else dict(pinst)
+
+        if role in pro and 'instance' in pro[role]:
+            _inst = _merge(_pinst, pro[role]['instance'])
+        else:
+            _inst = dict(_pinst)
+
+        validate_inst(role, _inst)
+        return _inst
+
+    tpl = clinfo['template']
+    if 'notebook' in pro:
+        tpl['notebook'] = _resolve('notebook')
+    if 'dask' in pro:
+        tpl['scheduler'] = _resolve('scheduler')
+        tpl['worker'] = _resolve('worker')
+        if 'worker' in pro['dask']:
+            dworker = pro['dask']['worker']
+            wcnt = dworker['count'] if 'count' in dworker else 1
+            tpl['worker']['count'] = wcnt
+    return clinfo
+
+
+def check_dup_cluster(clname):
+    """클러스터 이름이 겹치는지 검사."""
+    path = os.path.join(clust_dir, clname + '.json')
+    if os.path.isfile(path):
+        raise NameError("Cluster '{}' already exist.".format(clname))
+
+
+def start_services(clinfo):
+    critical("start_services")
+    remote_nb = 'notebook' in clinfo['profile']
+    if remote_nb:
+        start_notebook(clinfo)
+    if 'type' in clinfo:
+        start_cluster(clinfo)
+    # 서비스 정보 추가 후 다시 저장
+    save_cluster_info(clinfo)
+    return remote_nb

@@ -18,7 +18,7 @@ setup(
     install_requires=[
         'click',
         'paramiko',
-        'jsonschema==3.2.0',
+        'jsonschema>=3.2.0',
         'boto3'
     ]
 )

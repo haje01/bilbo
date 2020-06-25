@@ -6,13 +6,13 @@ import botocore
 
 from bilbo.version import VERSION
 from bilbo.util import set_log_verbosity, iter_profiles
+from bilbo.profile import check_profile
 from bilbo.cluster import create_cluster, show_cluster, \
     destroy_cluster, show_all_cluster, send_instance_cmd, \
     find_cluster_instance_by_public_ip, stop_cluster, start_cluster, \
-    open_dashboard, save_cluster_info, open_notebook, start_notebook, \
-    run_notebook_or_python, stop_notebook_or_python, pause_cluster, \
-    resume_cluster
-from bilbo.profile import check_profile, show_plan
+    open_dashboard, open_notebook, run_notebook_or_python, \
+    stop_notebook_or_python, pause_cluster, resume_cluster, show_plan, \
+    start_services, save_cluster_info
 
 
 @click.group()
@@ -21,6 +21,23 @@ from bilbo.profile import check_profile, show_plan
 def main(ctx, verbose):
     ctx.ensure_object(dict)
     set_log_verbosity(verbose)
+
+
+def _after_create(clinfo, open_nb, open_db):
+    # 인스턴스 정보만 저장
+    save_cluster_info(clinfo)
+    name = clinfo['name']
+    remote_nb = start_services(clinfo)
+    show_cluster(name)
+
+    if open_nb:
+        if remote_nb:
+            open_notebook(name)
+        else:
+            print("There is no remote notebook in the cluster.")
+
+    if open_db:
+        open_dashboard(name, False)
 
 
 @main.command(help="Create a cluster.")
@@ -36,25 +53,8 @@ def main(ctx, verbose):
 def create(profile, name, param, open_nb, open_db):
     """클러스터 생성."""
     check_profile(profile)
-    pobj, clinfo = create_cluster(profile, name, param)
-    remote_nb = 'notebook' in clinfo
-    if name is None:
-        name = clinfo['name']
-    if remote_nb:
-        start_notebook(pobj, clinfo)
-    if 'type' in clinfo:
-        start_cluster(clinfo)
-    save_cluster_info(name, clinfo)
-    show_cluster(name)
-
-    if open_nb:
-        if remote_nb:
-            open_notebook(name)
-        else:
-            print("There is no remote notebook in the cluster.")
-
-    if open_db:
-        open_dashboard(name, False)
+    clinfo = create_cluster(profile, name, param)
+    _after_create(clinfo, open_nb, open_db)
 
 
 @main.command(help="Pause a cluster.")
@@ -66,14 +66,14 @@ def pause(cluster):
 
 @main.command(help="Resume a cluster.")
 @click.argument('CLUSTER')
-def resume(cluster):
+@click.option('-n', '--notebook', 'open_nb', is_flag=True, help="Open remote "
+              "notebook when cluster is ready.")
+@click.option('-d', '--dashboard', 'open_db', is_flag=True, help="Open remote "
+              "dashboard when cluster is ready.")
+def resume(cluster, open_nb, open_db):
     """클러스터 재개."""
     clinfo = resume_cluster(cluster)
-    remote_nb = 'notebook' in clinfo
-    if remote_nb:
-        start_notebook(pobj, clinfo)
-    if 'type' in clinfo:
-        start_cluster(clinfo)
+    _after_create(clinfo, open_nb, open_db)
 
 
 @main.command(help="Show cluster creation plan.")
@@ -132,13 +132,12 @@ def restart(cluster):
 @click.argument('CMD')
 def rcmd(cluster, public_ip, cmd):
     # 존재하는 클러스터에서 인스턴스 IP로 정보를 찾음
-    info = find_cluster_instance_by_public_ip(cluster, public_ip)
-    if info is None:
+    ret = find_cluster_instance_by_public_ip(cluster, public_ip)
+    if ret is None:
         print("Can not find instance by ip {} in '{}'".
               format(public_ip, cluster))
         return
-    ssh_user = info['ssh_user']
-    ssh_private_key = info['ssh_private_key']
+    inst, ssh_user, ssh_private_key = ret
     stdout, _ = send_instance_cmd(ssh_user, ssh_private_key, public_ip, cmd)
 
     if len(stdout) > 0:

@@ -5,11 +5,12 @@ import logging
 from configparser import ConfigParser
 from logging.handlers import RotatingFileHandler
 import re
+import json
 
 
 LOG_FILE = 'bilbo_log.txt'
-LOG_FMT = logging.Formatter('%(levelname)s [%(filename)s:%(lineno)d]'
-                            ' %(message)s')
+# LOG_FMT = logging.Formatter('%(levelname)s [%(filename)s:%(lineno)d]'
+#                             ' %(message)s')
 PARAM_PTRN = re.compile(r'^([\w\.]+)=(.+)?$')
 
 mod_dir = os.path.dirname(os.path.abspath(__file__))
@@ -19,6 +20,11 @@ log_dir = os.path.join(bilbo_dir, 'logs')
 log_path = os.path.join(log_dir, LOG_FILE)
 prof_dir = os.path.join(bilbo_dir, 'profiles')
 clust_dir = os.path.join(bilbo_dir, 'clusters')
+
+
+def pprint(data):
+    """Pretty Print Dict."""
+    print(json.dumps(data, indent=4, sort_keys=True))
 
 
 def make_dir(dir_name, log=True):
