@@ -262,10 +262,9 @@ def validate_inst(role, inst):
 
 def create_cluster(profile, clname, params):
     """클러스터 생성."""
-    critical("Create cluster '{}'.".format(clname))
-
     if clname is None:
         clname = '.'.join(profile.lower().split('.')[0:-1])
+    critical("Create cluster '{}'.".format(clname))
 
     check_dup_cluster(clname)
 
