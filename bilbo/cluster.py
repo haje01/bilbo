@@ -1198,6 +1198,7 @@ def resolve_instances(clinfo):
     tpl = clinfo['template']
     if 'notebook' in pro:
         tpl['notebook'] = _resolve('notebook')
+
     if 'dask' in pro:
         tpl['scheduler'] = _resolve('scheduler')
         tpl['worker'] = _resolve('worker')
@@ -1207,6 +1208,8 @@ def resolve_instances(clinfo):
             tpl['worker']['count'] = wcnt
             if 'nproc' in dworker:
                 tpl['worker']['nproc'] = dworker['nproc']
+            if 'nthread' in dworker:
+                tpl['worker']['nthread'] = dworker['nthread']
     return clinfo
 
 
