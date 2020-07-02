@@ -1205,6 +1205,8 @@ def resolve_instances(clinfo):
             dworker = pro['dask']['worker']
             wcnt = dworker['count'] if 'count' in dworker else 1
             tpl['worker']['count'] = wcnt
+            if 'nproc' in dworker:
+                tpl['worker']['nproc'] = dworker['nproc']
     return clinfo
 
 
