@@ -128,6 +128,7 @@ def create_notebook(ec2, clinfo):
     nb.wait_until_running()
     nb.load()
     clinfo['instance']['notebook'] = instance_info(nb)
+    save_cluster_info(clinfo)
 
 
 def create_dask_cluster(ec2, clinfo):
@@ -158,6 +159,8 @@ def create_dask_cluster(ec2, clinfo):
         wrk.load()
         winsts.append(instance_info(wrk))
 
+    save_cluster_info(clinfo)
+    
     # ec2 생성 후 반환값의 `ncpu_options` 가 잘못오고 있어 여기서 요청.
     if len(wrks) > 0:
         # 첫 번째 워커의 ip
