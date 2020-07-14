@@ -1184,7 +1184,7 @@ def resolve_instances(clinfo):
             minst['tags'] = {**tags1, **tags2}
         return minst
 
-    def _resolve(role):
+    def _resolve_inst(role):
         _pinst = {} if pinst is None else dict(pinst)
 
         if role in pro and 'instance' in pro[role]:
@@ -1197,12 +1197,14 @@ def resolve_instances(clinfo):
 
     tpl = clinfo['template']
     if 'notebook' in pro:
-        tpl['notebook'] = _resolve('notebook')
+        tpl['notebook'] = _resolve_inst('notebook')
 
     if 'dask' in pro:
-        tpl['scheduler'] = _resolve('scheduler')
-        tpl['worker'] = _resolve('worker')
+        # 클러스터 인스턴스 정보 결정
+        tpl['scheduler'] = _resolve_inst('scheduler')
+        tpl['worker'] = _resolve_inst('worker')
         if 'worker' in pro['dask']:
+            # 인스턴스외 추가 정보 결정
             dworker = pro['dask']['worker']
             wcnt = dworker['count'] if 'count' in dworker else 1
             tpl['worker']['count'] = wcnt
