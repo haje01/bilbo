@@ -160,7 +160,7 @@ def create_dask_cluster(ec2, clinfo):
         winsts.append(instance_info(wrk))
 
     save_cluster_info(clinfo)
-    
+
     # ec2 생성 후 반환값의 `ncpu_options` 가 잘못오고 있어 여기서 요청.
     if len(wrks) > 0:
         # 첫 번째 워커의 ip
@@ -1226,7 +1226,6 @@ def check_dup_cluster(clname):
 
 
 def start_services(clinfo):
-    critical("start_services")
     remote_nb = 'notebook' in clinfo['profile']
     if remote_nb:
         start_notebook(clinfo)
