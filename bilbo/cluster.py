@@ -632,7 +632,8 @@ def send_instance_cmd(ssh_user, ssh_private_key, ip, cmd,
     for i in range(retry_count):
         try:
             client.connect(hostname=ip, username=ssh_user, pkey=key)
-        except (paramiko.ssh_exception.NoValidConnectionsError, TimeoutError):
+        except (paramiko.ssh_exception.NoValidConnectionsError, 
+            TimeoutError, BlockingIOError):
             warning("Connection failed to '{}'. Retry after a while.".
                     format(ip))
             time.sleep(TRY_SLEEP)
