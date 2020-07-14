@@ -40,6 +40,7 @@ bilbo 는 Linux, macOS, Windows 에서 사용 가능하며, Python 3.5 이상 �
   - [클러스터 중단과 재개](#클러스터-중단과-재개)
   - [원격으로 노트북 / 파이썬 파일 실행하기](#원격으로-노트북--파이썬-파일-실행하기)
   - [같은 VPC 인스턴스에서 bilbo 사용하기](#같은-vpc-인스턴스에서-bilbo-사용하기)
+  - [WSL (Windows Subsystem for Linux) 에서 문제](#wsl-windows-subsystem-for-linux-에서-문제)
   - [bilbo 의 업데이트와 제거](#bilbo-의-업데이트와-제거)
 ---
 
@@ -935,6 +936,23 @@ print(val)
 ```
 
 이제 bilbo 를 사용하는 인스턴스의 IP 가 유동적이어도, 매번 보안 그룹에 등록할 필요없이 편리하게 사용할 수 있다.
+
+### WSL (Windows Subsystem for Linux) 에서 문제
+
+윈도즈의 WSL 에서 빌보 사용시 몇 가지 문제와 대응책
+
+* `bilbo` 명령어를 찾을 수 없다는 에러가 발생할 때
+    * `~/.bash_profile` 에 `PATH=~/.local/bin:$PATH` 를 추가
+    * 참고 - https://stackoverflow.com/questions/34946777/python-entry-point-commandline-script-not-found-when-installing-with-user-flag
+
+* `Resource temporarily unavailable` 에러가 발생하는 경우
+  * WSL의 알려진 버그로 인한 문제
+  * `~/.ssh/config` 에 아래와 같이 추가
+```
+Host *
+    ProxyCommand nc %h %p %r
+```
+  * 참고 - https://superuser.com/questions/1098526/windows-10-linux-subsystem-ssh-client-resource-temporarily-unavailable
 
 ### bilbo 의 업데이트와 제거
 
