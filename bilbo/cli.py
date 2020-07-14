@@ -120,7 +120,7 @@ def _restart(cluster):
     start_cluster(clinfo)
 
 
-@main.command(help="Restart cluster.")
+@main.command(help="Restart cluster service.")
 @click.argument('CLUSTER')
 def restart(cluster):
     _restart(cluster)
