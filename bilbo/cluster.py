@@ -944,6 +944,9 @@ def open_dashboard(clname, url_only):
     check_cluster(clname)
     clinfo = load_cluster_info(clname)
 
+    if 'type' not in clinfo:
+        raise RuntimeError("No cluster exists.")
+
     if clinfo['type'] == 'dask':
         scd = clinfo['instance']['scheduler']
         public_ip = scd['public_ip']
