@@ -945,15 +945,6 @@ print(val)
     * `~/.bash_profile` 에 `PATH=~/.local/bin:$PATH` 를 추가
     * 참고 - https://stackoverflow.com/questions/34946777/python-entry-point-commandline-script-not-found-when-installing-with-user-flag
 
-* `Resource temporarily unavailable` 에러가 발생하는 경우
-  * WSL의 알려진 버그로 인한 문제
-  * `~/.ssh/config` 에 아래와 같이 추가
-```
-Host *
-    ProxyCommand nc %h %p %r
-```
-  * 참고 - https://superuser.com/questions/1098526/windows-10-linux-subsystem-ssh-client-resource-temporarily-unavailable
-
 ### bilbo 의 업데이트와 제거
 
 bilbo 를 업데이트하기 위해서는, 클론된 디렉토리에서 다음과 같이 한다:
