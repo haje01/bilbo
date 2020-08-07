@@ -107,7 +107,7 @@ def destroy(cluster, force):
     destroy_cluster(cluster, force)
 
 
-@main.command(help="Describe cluster.")
+@main.command(help="Describe a cluster.")
 @click.argument('CLUSTER')
 @click.option('-d', '--detail', is_flag=True,
               help="Show detailed information.")
@@ -120,7 +120,7 @@ def _restart(cluster):
     start_cluster(clinfo)
 
 
-@main.command(help="Restart cluster service.")
+@main.command(help="Restart a cluster service.")
 @click.argument('CLUSTER')
 def restart(cluster):
     _restart(cluster)
@@ -138,11 +138,11 @@ def rcmd(cluster, public_ip, cmd):
               format(public_ip, cluster))
         return
     inst, ssh_user, ssh_private_key = ret
-    stdout, _ = send_instance_cmd(ssh_user, ssh_private_key, public_ip, cmd)
+    stdout, _ = send_instance_cmd(ssh_user, ssh_private_key, public_ip, cmd, show_stdout=True)
 
-    if len(stdout) > 0:
-        for out in stdout:
-            print(out)
+    # if len(stdout) > 0:
+    #     for out in stdout:
+    #         print(out)
 
 
 @main.command(help="Open dashboard.")

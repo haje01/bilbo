@@ -6,6 +6,7 @@ import json
 import datetime
 import warnings
 import time
+import select
 import webbrowser
 import tempfile
 from urllib.request import urlopen
@@ -533,18 +534,17 @@ def check_git_modified(clinfo):
 
     uncmts = []
     unpushs = []
-    uncmt_cnt = unpush_cnt = 0
     for git_dir in git_dirs:
         cmd = "cd {} && git status --porcelain | grep '^ M.*'".format(git_dir)
-        _uncmts, _, = send_instance_cmd(user, private_key, nip, cmd)
-        uncmts += [os.path.join(git_dir, u) for u in _uncmts]
-        uncmt_cnt += len(_uncmts)
+        _uncmts, _ = send_instance_cmd(user, private_key, nip, cmd)
+        uncmts += [os.path.join(git_dir, u) for u in _uncmts if len(u) > 0]
 
         cmd = "cd {} && git cherry -v".format(git_dir)
-        _unpushs, _, = send_instance_cmd(user, private_key, nip, cmd)
-        unpushs += [os.path.join(git_dir, u) for u in _unpushs]
-        unpush_cnt += len(_unpushs)
+        _unpushs, _ = send_instance_cmd(user, private_key, nip, cmd)
+        unpushs += [os.path.join(git_dir, u) for u in _unpushs if len(u) > 0]
 
+    uncmt_cnt = len(uncmts)
+    unpush_cnt = len(unpushs)
     if uncmt_cnt > 0 or unpush_cnt > 0:
         print()
         print("There are {} uncommitted file(s) and {} unpushed commits(s)!".
@@ -645,21 +645,64 @@ def send_instance_cmd(ssh_user, ssh_private_key, ip, cmd,
         error("Connection failed to '{}'".format(ip))
         return
 
-    stdin, stdout, stderr = client.exec_command(cmd, get_pty=show_stdout)
-    if show_stdout:
-        stdouts = []
-        for line in iter(stdout.readline, ""):
-            stdouts.append(line)
-            print(line, end="")
-    else:
-        stdouts = stdout.readlines()
-    err = stderr.read()
-    if show_stderr and len(err) > 0:
-        error(err.decode('utf-8'))
+    transport = client.get_transport()
+    channel = transport.open_session()
+
+    channel.exec_command(cmd)
+    stdouts = []
+    stderrs = []
+    while True:
+        if channel.recv_ready():
+            recv = channel.recv(4096).decode('utf-8')
+            stdouts.append(recv)
+            if show_stdout:
+                print(recv, end="")
+
+        if channel.recv_stderr_ready():
+            recv = channel.recv_stderr(4096).decode('utf-8')
+            stderrs.append(recv)
+            if show_stderr:
+                error(recv)
+
+        if channel.exit_status_ready():
+            break
+
+        # rl, wl, xl = select.select([channel], [], [], 0.0)
+        # # print('--')
+        # # print(wl)
+        # # print(xl)
+        # if len(rl) > 0:
+        #     print(rl)
+        #     recv = channel.recv(4096).decode('utf-8')
+        #     if len(recv) > 0:
+        #         stdouts.append(recv)
+        #         if show_stdout:
+        #             print(recv, end="")
+        #     else:
+        #         recv = channel.recv_stderr(4096).decode('utf-8')
+        #         if len(recv) > 0:
+        #             stderrs.append(recv)
+        #             if show_stderr:
+        #                 error(recv)
+    stdouts = ''.join(stdouts).split('\n')
+    stderrs = ''.join(stderrs).split('\n')
+    # print(stdouts)
+    # print(stderrs)
+    # stdin, stdout, stderr = client.exec_command(cmd, get_pty=show_stdout)
+    # if show_stdout:
+    #     stdouts = []
+    #     for line in iter(stdout.readline, ""):
+    #         stdouts.append(line)
+    #         print(line, end="")
+    # else:
+    #     stdouts = stdout.readlines()
+    # err = stderr.read()
+    # if show_stderr and len(err) > 0:
+    #     error(err.decode('utf-8'))
 
     client.close()
 
-    return stdouts, err
+    return stdouts, stderrs
 
 
 def find_cluster_instance_by_public_ip(clname, public_ip):
@@ -747,7 +790,7 @@ def _get_ip(inst, private_command):
     return inst['private_ip'] if private_command else inst['public_ip']
 
 
-def start_notebook(clinfo, retry_count=10):
+def start_notebook(clinfo, retry_count=20):
     """노트북 시작.
 
     Args:
@@ -806,7 +849,7 @@ def start_notebook(clinfo, retry_count=10):
     for i in range(retry_count):
         stdouts, _ = send_instance_cmd(user, private_key, ip, cmd)
         # url을 얻었으면 기록
-        if len(stdouts) > 1:
+        if len(stdouts) > 1 and len(stdouts[1]) > 0:
             url = stdouts[1].strip().replace('0.0.0.0', inst['public_ip'])
             clinfo['notebook_url'] = url
             return
@@ -1068,9 +1111,10 @@ def _get_run_python(path, params):
 def run_notebook_or_python(clname, path, params):
     """원격 노트북 인스턴스에서 노트북 또는 파이썬 파일 실행."""
     info("run_notebook_or_python: {} - {}".format(clname, path))
-
+    
     check_cluster(clname)
     clinfo = load_cluster_info(clname)
+    dask = 'type' in clinfo and clinfo['type'] == 'dask'
     private_command = clinfo.get('private_command')
 
     if 'notebook' not in clinfo['instance']:
@@ -1084,29 +1128,46 @@ def run_notebook_or_python(clname, path, params):
     ext = path.split('.')[-1].lower()
 
     dask_scd_addr = None
-    if 'scheduler' in clinfo['instance']:
-        dask_scd_addr = _get_dask_scheduler_address(clinfo)
-    else:
-        for param in params:
-            if param.startswith('DASK_SCHEDULER_ADDRESS'):
-                dask_scd_addr = param
-    assert dask_scd_addr is not None, "No Dask scheduler address available."
+    if dask:
+        if 'scheduler' in clinfo['instance']:
+            dask_scd_addr = _get_dask_scheduler_address(clinfo)
+        else:
+            for param in params:
+                if param.startswith('DASK_SCHEDULER_ADDRESS'):
+                    dask_scd_addr = param
+        assert dask_scd_addr is not None, "No Dask scheduler address available."
+
+    def _check_err(err):
+        err = '\n'.join(err)
+        if 'error' in err.lower():
+            print(err)
+            return True
+        return False
 
     # 노트북 파일
     if ext == 'ipynb':
+        cparams = []
+        if dask:
+            cparams.insert(0, dask_scd_addr)        
         # Run by papermill
-        cmd, tmp = _get_run_notebook(path, params, [dask_scd_addr])
-        res, _ = send_instance_cmd(user, private_key, nip, cmd,
+        cmd, tmp = _get_run_notebook(path, params, cparams)
+        res, err = send_instance_cmd(user, private_key, nip, cmd,
                                    show_stdout=True, show_stderr=False)
-        cmd = 'cat {}'.format(tmp)
-        res, _ = send_instance_cmd(user, private_key, nip, cmd)
+        if not _check_err(err):
+            cmd = 'cat {}'.format(tmp)
+            res, err = send_instance_cmd(user, private_key, nip, cmd, show_stdout=True, 
+                                         show_stderr=False)
+            if len(err) > 0 and 'No such file' not in err[0]:
+                _check_err(err)
     # 파이썬 파일
     elif ext == 'py':
         params = list(params)
-        params.insert(0, dask_scd_addr)
+        if dask:
+            params.insert(0, dask_scd_addr)
         cmd = _get_run_python(path, params)
-        res, _ = send_instance_cmd(user, private_key, nip, cmd,
+        res, err = send_instance_cmd(user, private_key, nip, cmd,
                                    show_stdout=True)
+        _check_err(err)
     else:
         raise RuntimeError("Unsupported file type: {}".format(path))
 
