@@ -130,7 +130,8 @@ def restart(cluster):
 @click.argument('CLUSTER')
 @click.argument('PUBLIC_IP')
 @click.argument('CMD')
-def rcmd(cluster, public_ip, cmd):
+@click.option('-i', '--interact', is_flag=True, help="Interactive mode.")
+def rcmd(cluster, public_ip, cmd, interact):
     # 존재하는 클러스터에서 인스턴스 IP로 정보를 찾음
     ret = find_cluster_instance_by_public_ip(cluster, public_ip)
     if ret is None:
@@ -138,11 +139,8 @@ def rcmd(cluster, public_ip, cmd):
               format(public_ip, cluster))
         return
     inst, ssh_user, ssh_private_key = ret
-    stdout, _ = send_instance_cmd(ssh_user, ssh_private_key, public_ip, cmd, show_stdout=True)
-
-    # if len(stdout) > 0:
-    #     for out in stdout:
-    #         print(out)
+    stdout, _ = send_instance_cmd(ssh_user, ssh_private_key, public_ip, cmd, show_stdout=True, 
+        interactive=interact)
 
 
 @main.command(help="Open dashboard.")
