@@ -675,7 +675,7 @@ def send_instance_cmd(ssh_user, ssh_private_key, ip, cmd,
             # 쉘 종료를 알 수 없기에 done file 체크 
             if time.time() - last_check > 3:
                 channel.send("ls " + done_file + '\n') 
-                time.sleep(0.5)
+                time.sleep(0.1)
                 recv = channel.recv(4096)
                 if done_file in recv.decode('utf-8').split('\n')[1]:
                     break
