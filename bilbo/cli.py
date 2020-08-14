@@ -129,8 +129,9 @@ def restart(cluster):
 @main.command(help="Command to a cluster instance.")
 @click.argument('CLUSTER')
 @click.argument('PUBLIC_IP')
-@click.argument('CMD')
-def rcmd(cluster, public_ip, cmd):
+@click.argument('CMD') 
+@click.option('-s', '--shell', is_flag=True, help="Run as a shell (for long runnning command).")
+def rcmd(cluster, public_ip, cmd, shell):
     # 존재하는 클러스터에서 인스턴스 IP로 정보를 찾음
     ret = find_cluster_instance_by_public_ip(cluster, public_ip)
     if ret is None:
@@ -138,7 +139,7 @@ def rcmd(cluster, public_ip, cmd):
               format(public_ip, cluster))
         return
     inst, ssh_user, ssh_private_key = ret
-    send_instance_cmd(ssh_user, ssh_private_key, public_ip, cmd, show_stdout=True)
+    send_instance_cmd(ssh_user, ssh_private_key, public_ip, cmd, show_stdout=True, shell=shell)
 
 
 @main.command(help="Open dashboard.")

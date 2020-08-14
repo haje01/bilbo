@@ -35,6 +35,7 @@ bilbo 는 Linux, macOS, Windows 에서 사용 가능하며, Python 3.5 이상 �
   - [인스턴스 접두어 붙이기](#인스턴스-접두어-붙이기)
   - [태그 붙이기](#태그-붙이기)
   - [CLI 패러미터로 프로파일 값 덮어쓰기](#cli-패러미터로-프로파일-값-덮어쓰기)
+  - [원격 장비에서 명령 실행](#원격-장비에서-명령-실행)
   - [클러스터 재시작](#클러스터-재시작)
   - [노트북용 클러스터와 분산 작업용 클러스터의 프로파일 분리](#노트북용-클러스터와-분산-작업용-클러스터의-프로파일-분리)
   - [클러스터 중단과 재개](#클러스터-중단과-재개)
@@ -842,6 +843,31 @@ AWS 대쉬보드에서 인스턴스의 태그를 확인 가능하다.
 `-p` 를 반복적으로 사용하면, 여러 가지 변경을 한 번에 줄 수 있다.
 
     $ bilbo create test.json -p dask.worker.count=4 -p instance.tags.0.1=Anonymous
+
+### 원격 장비에서 명령 실행
+
+`rcmd` 를 사용하면 원격 장비에서 원하는 명령을 실행할 수 있다. 
+```
+$ bilbo rcmd --help
+
+Usage: bilbo rcmd [OPTIONS] CLUSTER PUBLIC_IP CMD
+
+  Command to a cluster instance.
+
+Options:
+  -s, --shell  Run as a shell (for long runnning command).
+  --help       Show this message and exit.
+```
+
+이를 위해서는 먼저 해당 장비의 Public IP 가 필요하다. `desc` 명령으로 원하는 장비의 IP 를 얻은 뒤 다음과 같이 명령을 내린다.
+
+```
+$ bilbo rcmd test 13.124.174.197 "cat /etc/issue"
+
+Ubuntu 16.04.6 LTS \n \l
+```
+
+> 처리하는데 수십분 이상의 시간이 필요한 명령의 경우, `-s` 또는 `--shell` 을 사용하여 쉘모드로 실행하는 것을 추천한다.
 
 ### 클러스터 재시작
 
