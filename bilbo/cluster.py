@@ -602,8 +602,7 @@ def destroy_cluster(clname, force):
 
 
 def send_instance_cmd(ssh_user, ssh_private_key, ip, cmd,
-                      show_stdout=False, show_stderr=True, retry_count=10,
-                      no_interact=True):
+                      show_stdout=False, show_stderr=True, retry_count=10):
     """인스턴스에 SSH 명령어 실행
 
     https://stackoverflow.com/questions/42645196/how-to-ssh-and-run-commands-in-ec2-using-boto3
@@ -616,7 +615,6 @@ def send_instance_cmd(ssh_user, ssh_private_key, ip, cmd,
         show_stdout (bool): 표준 출력 메시지 출력 여부
         show_stderr (bool): 에러 메시지 출력 여부
         retry_count (int): 재시도 횟수
-        no_interact (bool): 명령이 끝난 후 출력을 표시. 기본값 True
 
     Returns:
         tuple: send_command 함수의 결과 (stdout, stderr)
@@ -649,39 +647,28 @@ def send_instance_cmd(ssh_user, ssh_private_key, ip, cmd,
 
     stdouts = []
     stderrs = []
-    if no_interact:
-        # 비인터랙티브  모드 
-        stdin, stdout, stderr = client.exec_command(cmd, get_pty=show_stdout)
-        if show_stdout:
-            for line in iter(stdout.readline, ""):
-                stdouts.append(line)
-                print(line, end="")
-        else:
-            stdouts = stdout.readlines()
-        stderr = stderr.read()
-    else:
-        # 인터랙티브 모드
-        # assert '|' not in cmd and '&&' not in cmd and ';' not in cmd
-        transport = client.get_transport()
-        channel = transport.open_session()
-        channel.exec_command(cmd)
-        while True:
-            time.sleep(0.1)
-            if channel.recv_ready():
-                recv = channel.recv(4096).decode('utf-8')
-                stdouts.append(recv)
-                if show_stdout:
-                    print(recv, end="")
+    channel = client.invoke_shell()
+    time.sleep(1)
+    # 로그인시 출력 생략
+    channel.recv(9999)
+    channel.send(cmd + '\n')
+    while True:
+        time.sleep(0.1)
+        if channel.recv_ready():
+            recv = channel.recv(4096).decode('utf-8')
+            stdouts.append(recv)
+            if show_stdout:
+                print(recv, end="")
 
-            if channel.recv_stderr_ready():
-                recv = channel.recv_stderr(4096).decode('utf-8')
-                stderrs.append(recv)
+        if channel.recv_stderr_ready():
+            recv = channel.recv_stderr(4096).decode('utf-8')
+            stderrs.append(recv)
 
-            if channel.exit_status_ready():
-                break
+        if channel.exit_status_ready():
+            break
 
-        stdouts = ''.join(stdouts).split('\n')
-        stderr = ''.join(stderrs)
+    stdouts = ''.join(stdouts).split('\n')
+    stderr = ''.join(stderrs)
 
     if show_stderr and len(stderr) > 0:
         error(stderr)
