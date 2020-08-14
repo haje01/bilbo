@@ -677,7 +677,8 @@ def send_instance_cmd(ssh_user, ssh_private_key, ip, cmd,
                 channel.send("ls " + done_file + '\n') 
                 time.sleep(0.1)
                 recv = channel.recv(4096)
-                if done_file in recv.decode('utf-8').split('\n')[1]:
+                elms = recv.decode('utf-8').split('\n')
+                if len(elms) > 1 and done_file in [1]:
                     break
                 else:
                     last_check = time.time()
