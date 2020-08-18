@@ -648,6 +648,7 @@ def send_instance_cmd(ssh_user, ssh_private_key, ip, cmd,
         return
 
     done_file = "/tmp/bilbo_" + token_urlsafe(5)
+    echo_ptrn = re.compile(r'(.*ls |.*touch )?/tmp/bilbo_.\S+\r\n')
 
     stdouts = []
     stderrs = []
@@ -666,6 +667,7 @@ def send_instance_cmd(ssh_user, ssh_private_key, ip, cmd,
                 recv = channel.recv(4096).decode('utf-8')
                 stdouts.append(recv)
                 if show_stdout:
+                    recv = re.sub(echo_ptrn, '', recv)
                     print(recv, end="")
 
             if channel.recv_stderr_ready():
@@ -673,7 +675,7 @@ def send_instance_cmd(ssh_user, ssh_private_key, ip, cmd,
                 stderrs.append(recv)
 
             # 쉘 종료를 알 수 없기에 done file 체크 
-            if time.time() - last_check > 3:
+            if time.time() - last_check > 5:
                 channel.send("ls " + done_file + '\n') 
                 time.sleep(0.1)
                 recv = channel.recv(4096)
