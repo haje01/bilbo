@@ -654,46 +654,67 @@ def send_instance_cmd(ssh_user, ssh_private_key, ip, cmd,
     stderrs = []
 
     # 쉘로 실행
-    if shell:
-        channel = client.invoke_shell()
-        time.sleep(1)
-        # 로그인시 출력 생략
-        channel.recv(9999)
-        channel.send(cmd + ' ; touch ' + done_file + '\n')
-        last_check = time.time()
-        while True:
-            time.sleep(0.1)
-            if channel.recv_ready():
-                recv = channel.recv(4096).decode('utf-8')
-                stdouts.append(recv)
-                if show_stdout:
-                    recv = re.sub(echo_ptrn, '', recv)
-                    print(recv, end="")
+    # if shell:
+    #     channel = client.invoke_shell()
+    #     time.sleep(1)
+    #     # 로그인시 출력 생략
+    #     channel.recv(9999)
+    #     channel.send(cmd + ' ; touch ' + done_file + '\n')
+    #     last_check = time.time()
+    #     while True:
+    #         time.sleep(0.1)
+    #         if channel.recv_ready():
+    #             recv = channel.recv(4096).decode('utf-8')
+    #             stdouts.append(recv)
+    #             if show_stdout:
+    #                 recv = re.sub(echo_ptrn, '', recv)
+    #                 print(recv, end="")
 
-            if channel.recv_stderr_ready():
-                recv = channel.recv_stderr(4096).decode('utf-8')
-                stderrs.append(recv)
+    #         if channel.recv_stderr_ready():
+    #             recv = channel.recv_stderr(4096).decode('utf-8')
+    #             stderrs.append(recv)
 
-            # 쉘 종료를 알 수 없기에 done file 체크 
-            if time.time() - last_check > 5:
-                channel.send("ls " + done_file + '\n') 
-                time.sleep(0.1)
-                recv = channel.recv(4096)
-                elms = recv.decode('utf-8').split('\n')
-                if len(elms) > 1 and done_file in elms[1]:
-                    break
-                else:
-                    last_check = time.time()
-    # exec 로 실행
-    else:
-        stdin, stdout, stderr = client.exec_command(cmd, get_pty=show_stdout)
-        if show_stdout:
-            for line in iter(stdout.readline, ""):
-                stdouts.append(line)
-                print(line, end="")
-        else:
-            stdouts = stdout.readlines()
-        stderr = stderr.read()
+    #         # 쉘 종료를 알 수 없기에 done file 체크 
+    #         if time.time() - last_check > 5:
+    #             channel.send("ls " + done_file + '\n') 
+    #             time.sleep(0.1)
+    #             recv = channel.recv(4096)
+    #             elms = recv.decode('utf-8').split('\n')
+    #             if len(elms) > 1 and done_file in elms[1]:
+    #                 break
+    #             else:
+    #                 last_check = time.time()
+    # # exec 로 실행
+    # else:
+    
+    # 인터랙티브 모드
+    transport = client.get_transport()
+    transport.set_keepalive(60)
+    channel = transport.open_session()
+    channel.exec_command(cmd)
+    while True:
+        time.sleep(0.1)
+        if channel.recv_ready():
+            recv = channel.recv(4096).decode('utf-8')
+            stdouts.append(recv)
+            if show_stdout:
+                print(recv, end="")
+
+        if channel.recv_stderr_ready():
+            recv = channel.recv_stderr(4096).decode('utf-8')
+            stderrs.append(recv)
+
+        if channel.exit_status_ready():
+            break
+
+        # stdin, stdout, stderr = client.exec_command(cmd, get_pty=show_stdout)
+        # if show_stdout:
+        #     for line in iter(stdout.readline, ""):
+        #         stdouts.append(line)
+        #         print(line, end="")
+        # else:
+        #     stdouts = stdout.readlines()
+        # stderr = stderr.read()
 
     stdouts = ''.join(stdouts).split('\n')
     stderr = ''.join(stderrs)
