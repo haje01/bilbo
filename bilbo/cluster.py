@@ -11,7 +11,6 @@ import webbrowser
 import tempfile
 from urllib.request import urlopen
 from urllib.error import URLError
-from secrets import token_urlsafe
 
 import botocore
 import boto3
@@ -647,8 +646,8 @@ def send_instance_cmd(ssh_user, ssh_private_key, ip, cmd,
         error("Connection failed to '{}'".format(ip))
         return
 
-    done_file = "/tmp/bilbo_" + token_urlsafe(5)
-    echo_ptrn = re.compile(r'(.*ls |.*touch )?/tmp/bilbo_.\S+\r\n')
+    # done_file = "/tmp/bilbo_" + token_urlsafe(5)
+    # echo_ptrn = re.compile(r'(.*ls |.*touch )?/tmp/bilbo_.\S+\r\n')
 
     stdouts = []
     stderrs = []
