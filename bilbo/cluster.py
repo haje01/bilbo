@@ -1273,11 +1273,11 @@ def resolve_instances(clinfo):
             minst['tags'] = {**tags1, **tags2}
         return minst
 
-    def _resolve_inst(role):
+    def _resolve_inst(role, rpro):
         _pinst = {} if pinst is None else dict(pinst)
 
-        if role in pro and 'instance' in pro[role]:
-            _inst = _merge(_pinst, pro[role]['instance'])
+        if role in rpro and 'instance' in rpro[role]:
+            _inst = _merge(_pinst, rpro[role]['instance'])
         else:
             _inst = dict(_pinst)
 
@@ -1286,12 +1286,12 @@ def resolve_instances(clinfo):
 
     tpl = clinfo['template']
     if 'notebook' in pro:
-        tpl['notebook'] = _resolve_inst('notebook')
+        tpl['notebook'] = _resolve_inst('notebook', pro)
 
     if 'dask' in pro:
         # 클러스터 인스턴스 정보 결정
-        tpl['scheduler'] = _resolve_inst('scheduler')
-        tpl['worker'] = _resolve_inst('worker')
+        tpl['scheduler'] = _resolve_inst('scheduler', pro['dask'])
+        tpl['worker'] = _resolve_inst('worker', pro['dask'])
         if 'worker' in pro['dask']:
             # 인스턴스외 추가 정보 결정
             dworker = pro['dask']['worker']
@@ -1320,3 +1320,34 @@ def start_services(clinfo):
     # 서비스 정보 추가 후 다시 저장
     save_cluster_info(clinfo)
     return remote_nb
+
+
+def init_instances(clinfo):
+    """인스턴스 공통 초기화."""
+    tpl = clinfo['template']
+    insts = clinfo['instance']
+
+    # 초기화 명령
+    def _run_init_cmd(role):
+        rtpl = tpl[role]
+        user, private_key = rtpl['ssh_user'], rtpl['ssh_private_key']
+        if 'init_cmd' in rtpl:
+            cmds = rtpl['init_cmd']
+            if role == 'worker':
+                for winst in insts['workers']:
+                    ip = winst['public_ip']
+                    _send_cmd(user, private_key, ip, cmds)
+            else:
+                ip = insts[role]['public_ip']
+                _send_cmd(user, private_key, ip, cmds)
+
+    def _send_cmd(user, private_key, ip, cmds):
+        for cmd in cmds:
+            send_instance_cmd(user, private_key, ip, cmd)
+
+    if 'notebook' in tpl:
+        _run_init_cmd('notebook')
+    if 'scheduler' in tpl:
+        _run_init_cmd('scheduler')
+    if 'worker' in tpl:
+        _run_init_cmd('worker')

@@ -38,10 +38,13 @@
                     "type": "string",
                     "description": "Private key for SSH login"
                 },
+                "init_cmd": {
+                    "description": "Instance initializing command",
+                    "$ref": "#/definitions/stringArrayType"
+                },
                 "tags": {
                     "type": "array",
                     "description": "Instance tag list",
-
                     "items": {
                         "type": "array",
                         "description": "Tag item",
@@ -52,6 +55,12 @@
                         }
                     }
                 }
+            }
+        },
+        "stringArrayType": {
+            "type": "array",
+            "items": {
+                "type": "string"
             }
         },
         "gitType": {

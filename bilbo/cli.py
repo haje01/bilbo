@@ -12,7 +12,7 @@ from bilbo.cluster import create_cluster, show_cluster, \
     find_cluster_instance_by_public_ip, stop_cluster, start_cluster, \
     open_dashboard, open_notebook, run_notebook_or_python, \
     stop_notebook_or_python, pause_cluster, resume_cluster, show_plan, \
-    start_services, save_cluster_info
+    start_services, save_cluster_info, init_instances
 
 
 @click.group()
@@ -28,6 +28,7 @@ def _after_create(clinfo, open_nb, open_db):
     save_cluster_info(clinfo)
     name = clinfo['name']
     remote_nb = start_services(clinfo)
+    init_instances(clinfo)
     show_cluster(name)
 
     if open_nb:
