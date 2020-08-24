@@ -1,4 +1,4 @@
-bilbo (빌보) 는 AWS 상에서 파이썬 데이터 엔지니어링/과학용 클러스터를 만들고 관리해주는 툴이다. 현재 [Dask](https://dask.org) 를 지원하고, 앞으로 [Ray](https://github.com/ray-project/ray) 도 지원할 예정이다.
+bilbo (빌보) 는 AWS 상에서 파이썬 데이터 엔지니어링/과학용 클러스터를 만들고 관리해주는 툴이다. 현재 [Dask](https://dask.org) 를 지원하고, 앞으로 [Ray](https://github.com/ray-project/ray) 도 지원할 예정이다. 클러스터 생성 없이 분석 노트북만을 위한 용도로 사용해도 괜찮다.
 
 다음과 같은 일을 할 수 있다.
 
