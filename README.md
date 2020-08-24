@@ -41,6 +41,7 @@ bilbo 는 Linux, macOS, Windows 에서 사용 가능하며, Python 3.5 이상 �
   - [클러스터 중단과 재개](#클러스터-중단과-재개)
   - [초기화 명령어 실행](#초기화-명령어-실행)
   - [원격으로 노트북 / 파이썬 파일 실행하기](#원격으로-노트북--파이썬-파일-실행하기)
+  - [명령 실행이 실패한 경우 클러스터 제거](#명령-실행이-실패한-경우-클러스터-제거)
   - [같은 VPC 인스턴스에서 bilbo 사용하기](#같은-vpc-인스턴스에서-bilbo-사용하기)
   - [WSL (Windows Subsystem for Linux) 에서 문제](#wsl-windows-subsystem-for-linux-에서-문제)
   - [bilbo 의 업데이트와 제거](#bilbo-의-업데이트와-제거)
@@ -69,17 +70,21 @@ bilbo 는 Linux, macOS, Windows 에서 사용 가능하며, Python 3.5 이상 �
     --help         Show this message and exit.
 
     Commands:
-    ls         List active clusters.
-    create     Create cluster.
-    dashboard  Open dashboard.
-    desc       Describe a cluster.
-    destroy    Destroy cluster.
-    notebook   Open notebook.
-    plan       Show create cluster plan.
-    profiles   List all profiles.
-    rcmd       Command to a cluster instance.
-    restart    Restart cluster.
-    version    Show bilbo version.
+      create         Create a cluster.
+      dashboard      Open dashboard.
+      desc           Describe a cluster.
+      destroy        Destroy a cluster.
+      destroyfailed  Destroy a cluster if last rcmd failed.
+      ls             List active clusters.
+      notebook       Open notebook.
+      pause          Pause a cluster.
+      plan           Show cluster creation plan.
+      profiles       List all profiles.
+      rcmd           Command to a cluster instance.
+      restart        Restart a cluster service.
+      resume         Resume a cluster.
+      run            Run remote notebook or python file.
+      version        Show bilbo version.   
 
 다양한 명령들이 있는 데 하나씩 살펴볼 것이다. 간단히 bilbo 의 버전을 알아보자.
 
@@ -964,6 +969,23 @@ print(val)
 만약, 실행이 완료된 후 다음 작업을 위해 클러스터를 리스타트 하려면 아래와 같이 `-r` 옵션을 지정한다:
 
     $ bilbo run test test.py -r
+
+
+### 명령 실행이 실패한 경우 클러스터 제거
+
+클러스터에 명령을 내린 후 그것이 실패하면 클러스터를 제거해야 하는 경우가 있다. 많은 인스턴스로 클러스터를 만들고 작업을 진행하는데 중간 과정에서 에러가 발생하고 클러스터가 그대로 멈춰있다면, 큰 낭비가 되기에 빠르게 제거해주는 것이 맞을 것이다. 
+
+`destroyfailed` 를 명령을 이용하면 `rcmd` 나 `run` 으로 명령을 실행한 후, 그 결과가 실패한 경우만 클러스터가 파괴된다.
+
+예들 들어 다음 처럼 존재하지 않는 명령을 내려 에러를 유발하면, 다음에 실행되는 `destroyfailed` 에 의해 클러스터가 제거될 것이다.
+
+    $ bilbo rcmd test 13.124.174.197 foo
+    $ bilbo destroyfailed test 13.124.174.197
+
+앞선 명령이 잘 수행되었다면 `destroyfailed` 는 무시된다.
+
+> run 의 경우 IP 는 노트북 인스턴스의 Public IP 가 될 것이다. 
+
 
 ### 같은 VPC 인스턴스에서 bilbo 사용하기
 

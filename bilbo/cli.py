@@ -12,7 +12,8 @@ from bilbo.cluster import create_cluster, show_cluster, \
     find_cluster_instance_by_public_ip, stop_cluster, start_cluster, \
     open_dashboard, open_notebook, run_notebook_or_python, \
     stop_notebook_or_python, pause_cluster, resume_cluster, show_plan, \
-    start_services, save_cluster_info, init_instances
+    start_services, save_cluster_info, init_instances, load_cluster_info, \
+    send_instance_cmd_and_store_result
 
 
 @click.group()
@@ -131,8 +132,7 @@ def restart(cluster):
 @click.argument('CLUSTER')
 @click.argument('PUBLIC_IP')
 @click.argument('CMD') 
-@click.option('-s', '--shell', is_flag=True, help="Run as a shell (for long runnning command).")
-def rcmd(cluster, public_ip, cmd, shell):
+def rcmd(cluster, public_ip, cmd):
     # 존재하는 클러스터에서 인스턴스 IP로 정보를 찾음
     ret = find_cluster_instance_by_public_ip(cluster, public_ip)
     if ret is None:
@@ -140,8 +140,29 @@ def rcmd(cluster, public_ip, cmd, shell):
               format(public_ip, cluster))
         return
     inst, ssh_user, ssh_private_key = ret
-    send_instance_cmd(ssh_user, ssh_private_key, public_ip, cmd, show_stdout=True, shell=shell)
+    send_instance_cmd_and_store_result(cluster, ssh_user, ssh_private_key, public_ip, cmd)
 
+
+@main.command(help="Destroy a cluster if last rcmd failed.")
+@click.argument('CLUSTER')
+@click.argument('PUBLIC_IP')
+@click.option('-d', '--dry-run', is_flag=True, help="Not actually destroy.")
+def destroyfailed(cluster, public_ip, dry_run):
+    # 클러스터 정보에서 rcmd 실행결과를 찾음
+    clinfo = load_cluster_info(cluster)
+    result = clinfo['cmd_result']
+    if public_ip not in result:
+        print("Can not find command result for ip {} in '{}'".
+              format(public_ip, cluster))
+        return
+
+    cmd, success = clinfo['cmd_result'][public_ip]
+    # 실패했으면 클러스터 제거
+    if not success:
+        print(f"Last rcmd '{cmd}' failed. Destroy cluster.")
+        if not dry_run:
+            destroy_cluster(cluster, False)
+    
 
 @main.command(help="Open dashboard.")
 @click.argument('CLUSTER')

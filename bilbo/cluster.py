@@ -11,6 +11,7 @@ import webbrowser
 import tempfile
 from urllib.request import urlopen
 from urllib.error import URLError
+from secrets import token_urlsafe
 
 import botocore
 import boto3
@@ -18,7 +19,7 @@ import paramiko
 
 from bilbo.profile import read_profile
 from bilbo.util import critical, warning, error, clust_dir, iter_clusters, \
-    info, get_aws_config, PARAM_PTRN, pprint
+    info, get_aws_config, PARAM_PTRN, pprint, RCMD_DONE_FILE
 
 warnings.filterwarnings("ignore")
 
@@ -602,7 +603,8 @@ def destroy_cluster(clname, force):
 
 
 def send_instance_cmd(ssh_user, ssh_private_key, ip, cmd,
-                      show_stdout=False, show_stderr=True, retry_count=10, shell=False):
+                      show_stdout=False, show_stderr=True, retry_count=10,
+                      check_success=False):
     """인스턴스에 SSH 명령어 실행
 
     https://stackoverflow.com/questions/42645196/how-to-ssh-and-run-commands-in-ec2-using-boto3
@@ -615,10 +617,11 @@ def send_instance_cmd(ssh_user, ssh_private_key, ip, cmd,
         show_stdout (bool): 표준 출력 메시지 출력 여부
         show_stderr (bool): 에러 메시지 출력 여부
         retry_count (int): 재시도 횟수
-        shell (bool): 쉘로 실행 여부 (장시간 실행시 추천) . 기본 False
+        check_success (bool): 성공 여부 체크 여부. 기본 False
 
     Returns:
-        tuple: send_command 함수의 결과 (stdout, stderr)
+        tuple: send_command 함수의 결과. check_success 를 하지 않는 경우는 
+            stdout, stderr. 하는 경우는 stdout, stderr, success
     """
     info('send_instance_cmd - user: {}, key: {}, ip {}, cmd {}'
          .format(ssh_user, ssh_private_key, ip, cmd))
@@ -646,46 +649,13 @@ def send_instance_cmd(ssh_user, ssh_private_key, ip, cmd,
         error("Connection failed to '{}'".format(ip))
         return
 
-    # done_file = "/tmp/bilbo_" + token_urlsafe(5)
-    # echo_ptrn = re.compile(r'(.*ls |.*touch )?/tmp/bilbo_.\S+\r\n')
-
     stdouts = []
     stderrs = []
+    done_file = '/tmp/bilbo_rcmd_done'
+    if check_success:
+        # embed success file
+        cmd = f"rm -f {done_file} && " + cmd + f" && touch {done_file}"
 
-    # 쉘로 실행
-    # if shell:
-    #     channel = client.invoke_shell()
-    #     time.sleep(1)
-    #     # 로그인시 출력 생략
-    #     channel.recv(9999)
-    #     channel.send(cmd + ' ; touch ' + done_file + '\n')
-    #     last_check = time.time()
-    #     while True:
-    #         time.sleep(0.1)
-    #         if channel.recv_ready():
-    #             recv = channel.recv(4096).decode('utf-8')
-    #             stdouts.append(recv)
-    #             if show_stdout:
-    #                 recv = re.sub(echo_ptrn, '', recv)
-    #                 print(recv, end="")
-
-    #         if channel.recv_stderr_ready():
-    #             recv = channel.recv_stderr(4096).decode('utf-8')
-    #             stderrs.append(recv)
-
-    #         # 쉘 종료를 알 수 없기에 done file 체크 
-    #         if time.time() - last_check > 5:
-    #             channel.send("ls " + done_file + '\n') 
-    #             time.sleep(0.1)
-    #             recv = channel.recv(4096)
-    #             elms = recv.decode('utf-8').split('\n')
-    #             if len(elms) > 1 and done_file in elms[1]:
-    #                 break
-    #             else:
-    #                 last_check = time.time()
-    # # exec 로 실행
-    # else:
-    
     # 인터랙티브 모드
     transport = client.get_transport()
     transport.set_keepalive(60)
@@ -706,15 +676,6 @@ def send_instance_cmd(ssh_user, ssh_private_key, ip, cmd,
         if channel.exit_status_ready():
             break
 
-        # stdin, stdout, stderr = client.exec_command(cmd, get_pty=show_stdout)
-        # if show_stdout:
-        #     for line in iter(stdout.readline, ""):
-        #         stdouts.append(line)
-        #         print(line, end="")
-        # else:
-        #     stdouts = stdout.readlines()
-        # stderr = stderr.read()
-
     stdouts = ''.join(stdouts).split('\n')
     stderr = ''.join(stderrs)
 
@@ -723,7 +684,13 @@ def send_instance_cmd(ssh_user, ssh_private_key, ip, cmd,
 
     client.close()
 
-    return stdouts, stderr
+    if check_success:
+        ccmd = f'[[ -f {done_file} ]] && echo ok'
+        out, _= send_instance_cmd(ssh_user, ssh_private_key, ip, ccmd)
+        success = out[0] == 'ok'
+        return stdouts, stderr, success
+    else:
+        return stdouts, stderr
 
 
 def find_cluster_instance_by_public_ip(clname, public_ip):
@@ -1172,8 +1139,8 @@ def run_notebook_or_python(clname, path, params):
             cparams.insert(0, dask_scd_addr)        
         # Run by papermill
         cmd, tmp = _get_run_notebook(path, params, cparams)
-        res, err = send_instance_cmd(user, private_key, nip, cmd,
-                                   show_stdout=True, show_stderr=False)
+        res, err, _ = send_instance_cmd_and_store_result(clname, user, private_key, nip, cmd,
+                                                         show_stdout=True, show_stderr=False)
         if not _check_err(err):
             cmd = 'cat {}'.format(tmp)
             res, err = send_instance_cmd(user, private_key, nip, cmd, show_stdout=True, 
@@ -1186,8 +1153,8 @@ def run_notebook_or_python(clname, path, params):
         if dask:
             params.insert(0, dask_scd_addr)
         cmd = _get_run_python(path, params)
-        res, err = send_instance_cmd(user, private_key, nip, cmd,
-                                   show_stdout=True)
+        res, err, _ = send_instance_cmd_and_store_result(clname, user, private_key, nip, cmd,
+                                                         show_stdout=True)
         _check_err(err)
     else:
         raise RuntimeError("Unsupported file type: {}".format(path))
@@ -1351,3 +1318,35 @@ def init_instances(clinfo):
         _run_init_cmd('scheduler')
     if 'worker' in tpl:
         _run_init_cmd('worker')
+
+
+def send_instance_cmd_and_store_result(cluster, ssh_user, ssh_private_key, ip, cmd,
+                                       show_stdout=False, show_stderr=True, retry_count=10):
+    """인스턴스에 SSH 명령어 실행 후 결과를 클러스터 파일에 저장
+
+    https://stackoverflow.com/questions/42645196/how-to-ssh-and-run-commands-in-ec2-using-boto3
+
+    Args:
+        cluster (str): 클러스터명
+        ssh_user (str): SSH 유저
+        ssh_private_key (str): SSH Private Key 경로
+        ip (str): 대상 인스턴스의 Public IP
+        cmd (list): 커맨드 문자열 리스트
+        show_stdout (bool): 표준 출력 메시지 출력 여부
+        show_stderr (bool): 에러 메시지 출력 여부
+        retry_count (int): 재시도 횟수
+
+    Returns:
+        tuple: stdout, stderr, success
+    """
+    stdout, stderr, success = send_instance_cmd(ssh_user, ssh_private_key, ip, cmd, 
+        show_stdout=True, check_success=True)
+
+    # 호출 결과 exitcode 저장 
+    clinfo = load_cluster_info(cluster)
+    if 'cmd_result' not in clinfo:
+        clinfo['cmd_result'] = {}
+    clinfo['cmd_result'][ip] = cmd, success
+    save_cluster_info(clinfo)
+
+    return stdout, stderr, success 
