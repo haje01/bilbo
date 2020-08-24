@@ -10,6 +10,7 @@ import json
 
 LOG_FILE = 'bilbo_log.txt'
 RCMD_DONE_FILE = '/tmp/bilbo_rcmd_done'
+CTRL_C_EXCODE = 130
 PARAM_PTRN = re.compile(r'^([\w\.]+)=(.+)?$')
 
 mod_dir = os.path.dirname(os.path.abspath(__file__))

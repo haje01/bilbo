@@ -604,7 +604,7 @@ def destroy_cluster(clname, force):
 
 def send_instance_cmd(ssh_user, ssh_private_key, ip, cmd,
                       show_stdout=False, show_stderr=True, retry_count=10,
-                      check_success=False):
+                      get_excode=False):
     """인스턴스에 SSH 명령어 실행
 
     https://stackoverflow.com/questions/42645196/how-to-ssh-and-run-commands-in-ec2-using-boto3
@@ -617,11 +617,11 @@ def send_instance_cmd(ssh_user, ssh_private_key, ip, cmd,
         show_stdout (bool): 표준 출력 메시지 출력 여부
         show_stderr (bool): 에러 메시지 출력 여부
         retry_count (int): 재시도 횟수
-        check_success (bool): 성공 여부 체크 여부. 기본 False
+        get_excode (bool): exit code 체크 여부. 기본 False
 
     Returns:
-        tuple: send_command 함수의 결과. check_success 를 하지 않는 경우는 
-            stdout, stderr. 하는 경우는 stdout, stderr, success
+        tuple: send_command 함수의 결과. get_excode 를 하지 않는 경우는 
+            stdout, stderr. 하는 경우는 stdout, stderr, exit_code
     """
     info('send_instance_cmd - user: {}, key: {}, ip {}, cmd {}'
          .format(ssh_user, ssh_private_key, ip, cmd))
@@ -652,9 +652,9 @@ def send_instance_cmd(ssh_user, ssh_private_key, ip, cmd,
     stdouts = []
     stderrs = []
     done_file = '/tmp/bilbo_rcmd_done'
-    if check_success:
-        # embed success file
-        cmd = f"rm -f {done_file} && " + cmd + f" && touch {done_file}"
+    if get_excode:
+        # embed exit code file
+        cmd = f"rm -f {done_file} && " + cmd + f" ; echo $? > {done_file}"
 
     # 인터랙티브 모드
     transport = client.get_transport()
@@ -684,11 +684,14 @@ def send_instance_cmd(ssh_user, ssh_private_key, ip, cmd,
 
     client.close()
 
-    if check_success:
-        ccmd = f'[[ -f {done_file} ]] && echo ok'
+    if get_excode:
+        ccmd = f'if [ -f {done_file} ]; then cat {done_file}; fi'
         out, _= send_instance_cmd(ssh_user, ssh_private_key, ip, ccmd)
-        success = out[0] == 'ok'
-        return stdouts, stderr, success
+        try:
+            excode = int(out[0])
+        except ValueError:
+            excode = -1
+        return stdouts, stderr, excode
     else:
         return stdouts, stderr
 
@@ -1097,7 +1100,12 @@ def _get_run_python(path, params):
 
 
 def run_notebook_or_python(clname, path, params):
-    """원격 노트북 인스턴스에서 노트북 또는 파이썬 파일 실행."""
+    """원격 노트북 인스턴스에서 노트북 또는 파이썬 파일 실행.
+    
+    Returns:
+        tuple: (stdout, exit_code)
+    
+    """
     info("run_notebook_or_python: {} - {}".format(clname, path))
     
     check_cluster(clname)
@@ -1139,8 +1147,8 @@ def run_notebook_or_python(clname, path, params):
             cparams.insert(0, dask_scd_addr)        
         # Run by papermill
         cmd, tmp = _get_run_notebook(path, params, cparams)
-        res, err, _ = send_instance_cmd_and_store_result(clname, user, private_key, nip, cmd,
-                                                         show_stdout=True, show_stderr=False)
+        res, err, excode = run_cmd_and_store_result(clname, user, private_key, nip, cmd,
+                                                    show_stdout=True, show_stderr=False)
         if not _check_err(err):
             cmd = 'cat {}'.format(tmp)
             res, err = send_instance_cmd(user, private_key, nip, cmd, show_stdout=True, 
@@ -1153,13 +1161,13 @@ def run_notebook_or_python(clname, path, params):
         if dask:
             params.insert(0, dask_scd_addr)
         cmd = _get_run_python(path, params)
-        res, err, _ = send_instance_cmd_and_store_result(clname, user, private_key, nip, cmd,
-                                                         show_stdout=True)
+        res, err, excode = run_cmd_and_store_result(clname, user, private_key, nip, cmd,
+                                                    show_stdout=True)
         _check_err(err)
     else:
         raise RuntimeError("Unsupported file type: {}".format(path))
 
-    return res
+    return res, excode
 
 
 def show_plan(profile, clname, params):
@@ -1320,9 +1328,9 @@ def init_instances(clinfo):
         _run_init_cmd('worker')
 
 
-def send_instance_cmd_and_store_result(cluster, ssh_user, ssh_private_key, ip, cmd,
+def run_cmd_and_store_result(cluster, ssh_user, ssh_private_key, ip, cmd,
                                        show_stdout=False, show_stderr=True, retry_count=10):
-    """인스턴스에 SSH 명령어 실행 후 결과를 클러스터 파일에 저장
+    """인스턴스에 SSH 명령 실행 후 결과를 클러스터 파일에 저장
 
     https://stackoverflow.com/questions/42645196/how-to-ssh-and-run-commands-in-ec2-using-boto3
 
@@ -1337,16 +1345,15 @@ def send_instance_cmd_and_store_result(cluster, ssh_user, ssh_private_key, ip, c
         retry_count (int): 재시도 횟수
 
     Returns:
-        tuple: stdout, stderr, success
+        tuple: stdout, stderr, exit_code
     """
-    stdout, stderr, success = send_instance_cmd(ssh_user, ssh_private_key, ip, cmd, 
-        show_stdout=True, check_success=True)
+    stdout, stderr, excode = send_instance_cmd(ssh_user, ssh_private_key, ip, cmd, 
+                                               show_stdout=True, get_excode=True)
 
     # 호출 결과 exitcode 저장 
     clinfo = load_cluster_info(cluster)
     if 'cmd_result' not in clinfo:
         clinfo['cmd_result'] = {}
-    clinfo['cmd_result'][ip] = cmd, success
+    clinfo['cmd_result'][ip] = cmd, excode
     save_cluster_info(clinfo)
-
-    return stdout, stderr, success 
+    return stdout, stderr, excode 

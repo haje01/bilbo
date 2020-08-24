@@ -1,11 +1,11 @@
 """명령행 인터페이스."""
-import json
+import sys
 
 import click
 import botocore
 
 from bilbo.version import VERSION
-from bilbo.util import set_log_verbosity, iter_profiles
+from bilbo.util import set_log_verbosity, iter_profiles, CTRL_C_EXCODE
 from bilbo.profile import check_profile
 from bilbo.cluster import create_cluster, show_cluster, \
     destroy_cluster, show_all_cluster, send_instance_cmd, \
@@ -13,8 +13,7 @@ from bilbo.cluster import create_cluster, show_cluster, \
     open_dashboard, open_notebook, run_notebook_or_python, \
     stop_notebook_or_python, pause_cluster, resume_cluster, show_plan, \
     start_services, save_cluster_info, init_instances, load_cluster_info, \
-    send_instance_cmd_and_store_result
-
+    run_cmd_and_store_result
 
 @click.group()
 @click.option('-v', '--verbose', count=True, help="Increase message verbosity.")
@@ -131,7 +130,7 @@ def restart(cluster):
 @main.command(help="Command to a cluster instance.")
 @click.argument('CLUSTER')
 @click.argument('PUBLIC_IP')
-@click.argument('CMD') 
+@click.argument('CMD')
 def rcmd(cluster, public_ip, cmd):
     # 존재하는 클러스터에서 인스턴스 IP로 정보를 찾음
     ret = find_cluster_instance_by_public_ip(cluster, public_ip)
@@ -140,29 +139,13 @@ def rcmd(cluster, public_ip, cmd):
               format(public_ip, cluster))
         return
     inst, ssh_user, ssh_private_key = ret
-    send_instance_cmd_and_store_result(cluster, ssh_user, ssh_private_key, public_ip, cmd)
+    try:
+        _, _, excode = run_cmd_and_store_result(cluster, ssh_user, ssh_private_key, 
+                                                public_ip, cmd)
+    except KeyboardInterrupt:
+        excode = CTRL_C_EXCODE
+    return sys.exit(excode) 
 
-
-@main.command(help="Destroy a cluster if last rcmd failed.")
-@click.argument('CLUSTER')
-@click.argument('PUBLIC_IP')
-@click.option('-d', '--dry-run', is_flag=True, help="Not actually destroy.")
-def destroyfailed(cluster, public_ip, dry_run):
-    # 클러스터 정보에서 rcmd 실행결과를 찾음
-    clinfo = load_cluster_info(cluster)
-    result = clinfo['cmd_result']
-    if public_ip not in result:
-        print("Can not find command result for ip {} in '{}'".
-              format(public_ip, cluster))
-        return
-
-    cmd, success = clinfo['cmd_result'][public_ip]
-    # 실패했으면 클러스터 제거
-    if not success:
-        print(f"Last rcmd '{cmd}' failed. Destroy cluster.")
-        if not dry_run:
-            destroy_cluster(cluster, False)
-    
 
 @main.command(help="Open dashboard.")
 @click.argument('CLUSTER')
@@ -187,14 +170,16 @@ def notebook(cluster, url_only):
               help="Restart cluster when after running.")
 def run(cluster, file, param, _restart_after):
     try:
-        run_notebook_or_python(cluster, file, param)
+        _, excode = run_notebook_or_python(cluster, file, param)
     except KeyboardInterrupt:
         print("Interrupt received, stopping...")
         stop_notebook_or_python(cluster, file, param)
+        excode = CTRL_C_EXCODE
     finally:
         if _restart_after:
             _restart(cluster)
         print("Finished.")
+    sys.exit(excode)
 
 
 @main.command(help='Show bilbo version.')
