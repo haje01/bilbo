@@ -861,7 +861,6 @@ Usage: bilbo rcmd [OPTIONS] CLUSTER PUBLIC_IP CMD
   Command to a cluster instance.
 
 Options:
-  -s, --shell  Run as a shell (for long runnning command).
   --help       Show this message and exit.
 ```
 
@@ -872,8 +871,6 @@ $ bilbo rcmd test 13.124.174.197 "cat /etc/issue"
 
 Ubuntu 16.04.6 LTS \n \l
 ```
-
-> 처리하는데 수십분 이상의 시간이 필요한 명령의 경우, `-s` 또는 `--shell` 을 사용하여 **쉘모드** 로 실행하는 것을 추천한다.
 
 
 ### 클러스터 재시작
