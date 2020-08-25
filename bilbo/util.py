@@ -79,8 +79,8 @@ def set_log_verbosity(verbosity):
     level = log_level_from_verbosity(verbosity)
     rotfile = RotatingFileHandler(
         log_path,
-        maxBytes=1024**2,
-        backupCount=5
+        maxBytes=1024 * 1024 * 10,
+        backupCount=10
     )
     rotfile.setLevel(logging.DEBUG)
 
