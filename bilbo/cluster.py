@@ -620,7 +620,7 @@ def send_instance_cmd(ssh_user, ssh_private_key, ip, cmd,
         get_excode (bool): exit code 체크 여부. 기본 False
 
     Returns:
-        tuple: send_command 함수의 결과. get_excode 를 하지 않는 경우는 
+        tuple: send_command 함수의 결과. get_excode 를 하지 않는 경우는
             stdout, stderr. 하는 경우는 stdout, stderr, exit_code
     """
     info('send_instance_cmd - user: {}, key: {}, ip {}, cmd {}'
@@ -636,7 +636,7 @@ def send_instance_cmd(ssh_user, ssh_private_key, ip, cmd,
     for i in range(retry_count):
         try:
             client.connect(hostname=ip, username=ssh_user, pkey=key)
-        except (paramiko.ssh_exception.NoValidConnectionsError, 
+        except (paramiko.ssh_exception.NoValidConnectionsError,
             TimeoutError, BlockingIOError):
             warning("Connection failed to '{}'. Retry after a while.".
                     format(ip))
@@ -923,7 +923,11 @@ def start_dask_cluster(clinfo):
     dash_url = 'http://{}:8787'.format(sip)
     clinfo['dask_dashboard_url'] = dash_url
     critical("Wait for Dask dashboard ready.")
-    wait_until_connect(dash_url)
+    try:
+        wait_until_connect(dash_url)
+    except Exception as e:
+        error(str(e))
+        raise e
 
 
 def stop_cluster(clname):
@@ -1101,13 +1105,13 @@ def _get_run_python(path, params):
 
 def run_notebook_or_python(clname, path, params):
     """원격 노트북 인스턴스에서 노트북 또는 파이썬 파일 실행.
-    
+
     Returns:
         tuple: (stdout, exit_code)
-    
+
     """
     info("run_notebook_or_python: {} - {}".format(clname, path))
-    
+
     check_cluster(clname)
     clinfo = load_cluster_info(clname)
     dask = 'type' in clinfo and clinfo['type'] == 'dask'
@@ -1144,14 +1148,14 @@ def run_notebook_or_python(clname, path, params):
     if ext == 'ipynb':
         cparams = []
         if dask:
-            cparams.insert(0, dask_scd_addr)        
+            cparams.insert(0, dask_scd_addr)
         # Run by papermill
         cmd, tmp = _get_run_notebook(path, params, cparams)
         res, err, excode = run_cmd_and_store_result(clname, user, private_key, nip, cmd,
                                                     show_stdout=True, show_stderr=False)
         if not _check_err(err):
             cmd = 'cat {}'.format(tmp)
-            res, err = send_instance_cmd(user, private_key, nip, cmd, show_stdout=True, 
+            res, err = send_instance_cmd(user, private_key, nip, cmd, show_stdout=True,
                                          show_stderr=False)
             if len(err) > 0 and 'No such file' not in err[0]:
                 _check_err(err)
@@ -1299,6 +1303,7 @@ def start_services(clinfo):
 
 def init_instances(clinfo):
     """인스턴스 공통 초기화."""
+    warning("init_instances")
     tpl = clinfo['template']
     insts = clinfo['instance']
 
@@ -1347,13 +1352,13 @@ def run_cmd_and_store_result(cluster, ssh_user, ssh_private_key, ip, cmd,
     Returns:
         tuple: stdout, stderr, exit_code
     """
-    stdout, stderr, excode = send_instance_cmd(ssh_user, ssh_private_key, ip, cmd, 
+    stdout, stderr, excode = send_instance_cmd(ssh_user, ssh_private_key, ip, cmd,
                                                show_stdout=True, get_excode=True)
 
-    # 호출 결과 exitcode 저장 
+    # 호출 결과 exitcode 저장
     clinfo = load_cluster_info(cluster)
     if 'cmd_result' not in clinfo:
         clinfo['cmd_result'] = {}
     clinfo['cmd_result'][ip] = cmd, excode
     save_cluster_info(clinfo)
-    return stdout, stderr, excode 
+    return stdout, stderr, excode
