@@ -10,7 +10,8 @@ import select
 import webbrowser
 import tempfile
 from urllib.request import urlopen
-from urllib.error import URLError
+from urllib.error import HTTPError, URLError
+from socket import timeout
 from secrets import token_urlsafe
 
 import botocore
@@ -221,11 +222,12 @@ def wait_until_connect(url, retry_count=10):
     info("wait_until_connect: {}".format(url))
     for i in range(retry_count):
         try:
-            urlopen(url, timeout=5)
+            urlopen(url, timeout=8)
             return
-        except URLError:
+        except (HTTPError, URLError, timeout):
             info("Can not connect to dashboard. Wait for a while.")
             time.sleep(TRY_SLEEP)
+
     raise ConnectionError()
 
 
