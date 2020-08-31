@@ -448,6 +448,7 @@ def check_cluster(clname):
     Args:
         clname (str): 클러스터명 (.json 확장자 제외)
     """
+    info(f"check_cluster {clname}")
     if clname.lower().endswith('.json'):
         rname = '.'.join(clname.split('.')[0:-1])
         msg = "Wrong cluster name '{}'. Use '{}' instead.". \
@@ -465,6 +466,7 @@ def check_cluster(clname):
 
 def show_cluster(clname, detail=False):
     """클러스터 정보를 표시."""
+    warning(f"show_cluster {clname}")
     check_cluster(clname)
     if detail:
         clinfo = load_cluster_info(clname)
@@ -578,6 +580,7 @@ def check_git_modified(clinfo):
 
 def destroy_cluster(clname, force):
     """클러스터 제거."""
+    warning(f"destroy_cluster {clname}")
     check_cluster(clname)
     clinfo = load_cluster_info(clname)
 
@@ -1001,6 +1004,7 @@ def open_dashboard(clname, url_only):
 
 def open_notebook(clname, url_only=False):
     """노트북 열기."""
+    warning(f"open_notebook {clname}")
     check_cluster(clname)
     clinfo = load_cluster_info(clname)
 
@@ -1011,6 +1015,7 @@ def open_notebook(clname, url_only=False):
         else:
             open_url(url, clinfo)
     else:
+        error("no notebook instance.")
         raise Exception("No notebook instance.")
 
 
