@@ -140,11 +140,11 @@ def rcmd(cluster, public_ip, cmd):
         return
     inst, ssh_user, ssh_private_key = ret
     try:
-        _, _, excode = run_cmd_and_store_result(cluster, ssh_user, ssh_private_key, 
+        _, _, excode = run_cmd_and_store_result(cluster, ssh_user, ssh_private_key,
                                                 public_ip, cmd)
     except KeyboardInterrupt:
         excode = CTRL_C_EXCODE
-    return sys.exit(excode) 
+    return sys.exit(excode)
 
 
 @main.command(help="Open dashboard.")
