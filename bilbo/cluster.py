@@ -9,6 +9,7 @@ import time
 import select
 import webbrowser
 import tempfile
+import logging
 from urllib.request import urlopen
 from urllib.error import HTTPError, URLError
 from socket import timeout
@@ -23,6 +24,7 @@ from bilbo.util import critical, warning, error, clust_dir, iter_clusters, \
     info, get_aws_config, PARAM_PTRN, pprint, RCMD_DONE_FILE
 
 warnings.filterwarnings("ignore")
+logging.getLogger("paramiko").setLevel(logging.WARNING)
 
 NB_WORKDIR = "~/works"
 TRY_SLEEP = 10
