@@ -121,6 +121,17 @@ def instance_info(inst):
     return info
 
 
+def _wait_until_running(inst):
+    info(f"_wait_until_running: {inst}")
+    try:
+        inst.wait_until_running()
+        inst.load()
+    except Exception as e:
+        error(str(e))
+        raise e
+    return inst
+
+
 def create_notebook(ec2, clinfo):
     """노트북 생성."""
     critical("Create notebook.")
@@ -130,8 +141,7 @@ def create_notebook(ec2, clinfo):
     nb = create_inst(ec2, tpl, 'notebook', clname, prefix)[0]
 
     info("Wait for notebook instance to be running.")
-    nb.wait_until_running()
-    nb.load()
+    nb = _wait_until_running(nb)
     clinfo['instance']['notebook'] = instance_info(nb)
     save_cluster_info(clinfo)
 
@@ -156,12 +166,10 @@ def create_dask_cluster(ec2, clinfo):
 
     # 사용 가능 상태까지 기다린 후 추가 정보 얻기.
     info("Wait for instance to be running.")
-    scd.wait_until_running()
-    scd.load()
+    scd = _wait_until_running(scd)
     clinfo['instance']['scheduler'] = instance_info(scd)
     for wrk in wrks:
-        wrk.wait_until_running()
-        wrk.load()
+        wrk = _wait_until_running(wrk)
         winsts.append(instance_info(wrk))
 
     save_cluster_info(clinfo)
@@ -308,7 +316,7 @@ def pause_instance(inst_ids):
     except botocore.exceptions.ClientError as e:
         if 'DryRunOperation' not in str(e):
             error(str(e))
-            raise
+            raise e
 
     # 정지
     try:
