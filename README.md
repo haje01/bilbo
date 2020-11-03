@@ -808,9 +808,9 @@ AWS 대쉬보드에서 인스턴스의 태그를 확인 가능하다.
         "ami": "ami-0d6f90497c997e994",
         "security_group": "sg-0bc538e0a7c089b4d",
         "ec2type": "t3.micro",
-        "keyname": "wzdat-seoul",
+        "keyname": "my-keypair",
         "ssh_user": "ubuntu",
-        "ssh_private_key": "~/.ssh/wzdat-seoul.pem",
+        "ssh_private_key": "~/.ssh/my-keypair.pem",
         "tags": [
             ["Owner", "haje01@gmail.com"],
             ["Service", "MyService"]
