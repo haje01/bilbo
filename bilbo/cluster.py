@@ -227,7 +227,7 @@ def load_cluster_info(clname):
     return clinfo
 
 
-def wait_until_connect(url, retry_count=10):
+def wait_until_connect(url, retry_count=60):
     """URL 접속이 가능할 때까지 기다림."""
     info("wait_until_connect: {}".format(url))
     for i in range(retry_count):
@@ -618,7 +618,7 @@ def destroy_cluster(clname, force):
 
 
 def send_instance_cmd(ssh_user, ssh_private_key, ip, cmd,
-                      show_stdout=False, show_stderr=True, retry_count=10,
+                      show_stdout=False, show_stderr=True, retry_count=30,
                       get_excode=False):
     """인스턴스에 SSH 명령어 실행
 
@@ -796,7 +796,7 @@ def _get_ip(inst, private_command):
     return inst['private_ip'] if private_command else inst['public_ip']
 
 
-def start_notebook(clinfo, retry_count=20):
+def start_notebook(clinfo, retry_count=60):
     """노트북 시작.
 
     Args:
@@ -1351,7 +1351,7 @@ def init_instances(clinfo):
 
 
 def run_cmd_and_store_result(cluster, ssh_user, ssh_private_key, ip, cmd,
-                                       show_stdout=False, show_stderr=True, retry_count=10):
+                                       show_stdout=False, show_stderr=True, retry_count=30):
     """인스턴스에 SSH 명령 실행 후 결과를 클러스터 파일에 저장
 
     https://stackoverflow.com/questions/42645196/how-to-ssh-and-run-commands-in-ec2-using-boto3
